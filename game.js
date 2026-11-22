@@ -78,8 +78,8 @@ function pushOutOfWalls(u,rad,friendly=false){
 function behindWalls(p,m=14){for(const n of CURTAIN_DIRS)if((p.x-WORLD.cx)*n.x+(p.y-WORLD.cy)*n.y>FORT.apothem+m)return false;return true}
 const RIVER_DEFS=[
  // Bridges sit exactly where the four cart tracks meet the rivers.
- {y:1010,bridges:[{x:1311,y:1010},{x:3089,y:1010}]},
- {y:2590,bridges:[{x:956,y:2590},{x:3444,y:2590}]}
+ {y:1010,bridges:[{x:1311,y:1010,angle:-2.639-Math.PI/2},{x:3089,y:1010,angle:-0.503-Math.PI/2}]},
+ {y:2590,bridges:[{x:956,y:2590,angle:2.401-Math.PI/2},{x:3444,y:2590,angle:0.741-Math.PI/2}]}
 ];
 function riverCurvePoints(r){
  const out=[];
@@ -103,7 +103,7 @@ function riverYAtX(points,x){
  }
  return best.y;
 }
-function riverBridgePass(x,y,r){return r.bridges.some(b=>Math.abs(x-b.x)<55&&Math.abs(y-b.y)<84)}
+function riverBridgePass(x,y,r){return r.bridges.some(b=>{const a=b.angle||0,dx=x-b.x,dy=y-b.y,lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);return Math.abs(lx)<55&&Math.abs(ly)<84})}
 function riverBlocked(x,y){
  for(let i=0;i<RIVER_DEFS.length;i++){
   const r=RIVER_DEFS[i];if(riverBridgePass(x,y,r))continue;
@@ -429,12 +429,12 @@ function drawRiversAndBridges(){
     ctx.fillStyle='#b3a27b';ctx.beginPath();ctx.arc(rx+8,ry+2,2,0,Math.PI*2);ctx.fill();
    }
   }
-  for(const b of r.bridges)drawWoodenBridge(b.x,b.y);
+  for(const b of r.bridges)drawWoodenBridge(b.x,b.y,b.angle||0);
  }
  ctx.lineCap='butt';ctx.lineJoin='miter';
 }
-function drawWoodenBridge(x,y){
- ctx.save();ctx.translate(x,y);
+function drawWoodenBridge(x,y,rotation=0){
+ ctx.save();ctx.translate(x,y);ctx.rotate(rotation);
  // Stone abutments and dark shadow
  ctx.fillStyle='rgba(26,31,24,.38)';ctx.fillRect(-55,-72,110,144);
  ctx.fillStyle='#706b58';ctx.fillRect(-52,-68,12,136);ctx.fillRect(40,-68,12,136);
