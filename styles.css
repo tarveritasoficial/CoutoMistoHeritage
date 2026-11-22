@@ -116,3 +116,9 @@
 .victory-video-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#05090680 0%,transparent 22%,transparent 75%,#05090666 100%)}
 .victory-video-controls{position:absolute;top:clamp(16px,4vh,40px);right:clamp(16px,4vw,48px);display:flex;gap:9px;z-index:2}
 @media(max-width:600px){.victory-video-controls{top:auto;bottom:20px;left:0;right:0;justify-content:center}.victory-video-controls .trailer-btn{padding:12px 13px}}
+
+
+/* Keep the combat HUD compact at the top instead of stretching to stage height */
+.hud{align-items:flex-start}
+.hud-left,.hud-right{align-items:flex-start}
+.meter,.ammo{height:auto;align-self:flex-start}
