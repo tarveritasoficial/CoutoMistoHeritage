@@ -24,3 +24,13 @@
 @media(max-width:650px){.topbar{height:52px}.brand strong{font-size:12px}.brand small{font-size:7px}.top-stats{gap:9px;font-size:8px}.top-stats b{font-size:11px}.footer{font-size:7px;padding:0 8px}.footer span:last-child{display:none}.hud{inset:8px 7px auto}.hud-left,.hud-right{gap:5px}.meter,.ammo{min-width:0;padding:6px}.bar{width:52px}.meter span,.ammo span{font-size:7px}.nation-legend{display:none}.wave-banner{top:75px;font-size:12px}.menu-card{padding:25px 20px}.faction-strip{gap:5px}.faction-strip span{font-size:7px}}
 @media(min-width:900px){.mobile-controls{display:none!important}}
 .defender-choice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 auto 12px;padding:10px 12px;max-width:390px;border:1px solid #bda36566;background:#101a1566;color:#d9c99f;font-size:10px;font-weight:700;letter-spacing:1.3px}.defender-choice select{min-width:135px;padding:9px 10px;background:#17271d;color:#f0d38c;border:1px solid #bda365aa;border-radius:2px;font:600 12px Inter,Arial,sans-serif}
+
+.deployment-panel{max-width:390px;margin:0 auto 12px;padding:10px 12px;border:1px solid #bda36566;background:#101a1566;text-align:left}
+.deployment-heading{font-size:10px;letter-spacing:1.5px;color:#d4b36a;font-weight:700;text-align:center;margin-bottom:7px}
+.deployment-choice{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;color:#d9c99f;font-size:9px;font-weight:700;letter-spacing:1px}
+.deployment-choice input{width:65px;padding:7px 8px;background:#17271d;color:#f0d38c;border:1px solid #bda365aa;border-radius:2px;font:600 12px Inter,Arial,sans-serif;text-align:center}
+.deployment-total{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #bda36555;margin-top:5px;padding-top:8px;color:#d9c99f;font-size:9px;letter-spacing:1px}
+.deployment-total strong{font:700 18px Cinzel,serif;color:#f0d38c}
+.deployment-error{min-height:12px;color:#e58a76;font-size:9px;text-align:center;margin-top:4px}
+#start-btn:disabled{opacity:.45;cursor:not-allowed}
+@media(max-height:760px){.menu-card{padding:18px 24px}.big-crest{font-size:34px;margin:5px 0}.menu-card h1{font-size:32px;margin:2px 0 8px}.menu-card p{margin-bottom:10px}.deployment-panel{padding:7px 10px;margin-bottom:7px}.deployment-choice{padding:3px 0}.faction-strip{margin-top:10px}}
