@@ -336,7 +336,8 @@ function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save(
  for(const a of GATE_ANGLES){ctx.moveTo(WORLD.cx+Math.cos(a)*300,WORLD.cy+Math.sin(a)*300);ctx.lineTo(WORLD.cx+Math.cos(a)*620,WORLD.cy+Math.sin(a)*620)}
  for(const s of CAMP_SITES){const ca=Math.atan2(s.y-WORLD.cy,s.x-WORLD.cx);let ga=GATE_ANGLES[0],bd=9;for(const a of GATE_ANGLES){const d=Math.abs(Math.atan2(Math.sin(a-ca),Math.cos(a-ca)));if(d<bd){bd=d;ga=a}}ctx.moveTo(WORLD.cx+Math.cos(ga)*620,WORLD.cy+Math.sin(ga)*620);ctx.lineTo(s.x,s.y)}
  ctx.strokeStyle='#66563b';ctx.lineWidth=38;ctx.stroke();ctx.strokeStyle='#a99a70';ctx.lineWidth=28;ctx.stroke();ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2;ctx.setLineDash([10,15]);ctx.stroke();ctx.setLineDash([]);ctx.lineCap='butt';
- drawVillage(1000,1000);drawVillage(2300,1700);drawVillage(1500,2060);\n drawRiversAndBridges();
+ drawVillage(1000,1000);drawVillage(2300,1700);drawVillage(1500,2060);
+ drawRiversAndBridges();
  for(const c of camps)drawEnemyCamp(c);
  drawTrees();drawFortress();ctx.restore()}
 function drawRiversAndBridges(){
