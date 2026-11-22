@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#17251d">
+  <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
+  <title>Couto Misto Heritage</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="game-shell">
+    <header class="topbar">
+      <div class="brand"><span class="crest">✦</span><div><strong>COUTO MISTO</strong><small>HERITAGE · FORTRESS DEFENCE</small></div></div>
+      <div class="top-stats"><span>WAVE <b id="wave">0</b></span><span>SCORE <b id="score">0</b></span><span>GUARDS <b id="guards">8/8</b></span></div>
+      <button id="pause-btn" class="small-btn" aria-label="Pause">Ⅱ</button>
+    </header>
+    <section id="stage">
+      <canvas id="game" aria-label="Couto Misto fortress defense game"></canvas>
+      <div id="loading" class="overlay"><div class="loading-card"><div class="loader-crest">✦</div><h1>COUTO MISTO HERITAGE</h1><p>Preparing the fortress…</p><div class="loading-track"><i></i></div></div></div>
+      <div id="menu" class="overlay hidden"><div class="menu-card"><div class="eyebrow">A HISTORICAL FORTRESS DEFENCE</div><div class="big-crest">✦</div><h1>COUTO MISTO<br><em>HERITAGE</em></h1><p>Stand with the defenders. Hold the walls. Protect the free lands.</p><button id="start-btn" class="gold-btn">DEFEND THE FORTRESS</button><button id="how-btn" class="ghost-btn">FIELD ORDERS</button><div class="faction-strip"><span class="cm">COUTO MISTO</span><span class="pt">PORTUGAL</span><span class="es">SPAIN</span><span class="fr">FRANCE</span><span class="en">ENGLAND</span></div></div></div>
+      <div id="pause" class="overlay hidden"><div class="menu-card compact"><div class="eyebrow">FIELD ORDERS</div><h2>PAUSED</h2><p>The battle waits for your command.</p><button id="resume-btn" class="gold-btn">RESUME BATTLE</button><button id="restart-btn" class="ghost-btn">RESTART DEFENCE</button></div></div>
+      <div id="gameover" class="overlay hidden"><div class="menu-card compact"><div class="eyebrow">THE FORTRESS HAS FALLEN</div><h2>DEFEAT</h2><p id="final-stats">Your defence has ended.</p><button id="again-btn" class="gold-btn">DEFEND AGAIN</button></div></div>
+      <div id="orders" class="overlay hidden"><div class="menu-card compact orders-card"><div class="eyebrow">FIELD MANUAL</div><h2>YOUR ORDERS</h2><p><b>WASD / Arrows</b> — move<br><b>Mouse</b> — aim<br><b>Left click</b> — fire musket<br><b>Space</b> — sword strike<br><b>R</b> — reload<br><b>E</b> — use nearby cannon<br><b>Esc</b> — pause</p><p class="muted">Mobile: use the left joystick to move and the right side to aim and fire. The sword and reload buttons are at the bottom.</p><button id="close-orders" class="gold-btn">UNDERSTOOD</button></div></div>
+      <div id="hud" class="hud hidden">
+        <div class="hud-left"><div class="meter"><span>HEALTH</span><div class="bar"><i id="health-bar"></i></div><b id="health-text">100</b></div><div class="meter"><span>FORTRESS</span><div class="bar fortress"><i id="fort-bar"></i></div><b id="fort-text">100%</b></div></div>
+        <div class="hud-right"><div class="ammo"><span>MUSKET</span><b id="ammo">6 / 6</b><small id="reload-state">READY</small></div><div class="nation-legend"><span class="dot pt"></span> PT <span class="dot es"></span> ES <span class="dot fr"></span> FR <span class="dot en"></span> EN</div></div>
+        <div id="wave-banner" class="wave-banner"></div>
+      </div>
+      <div id="mobile-controls" class="mobile-controls hidden">
+        <div id="joystick" class="joystick"><div id="stick" class="stick"></div></div>
+        <div class="mobile-actions"><button id="touch-fire">FIRE</button><button id="touch-sword">SWORD</button><button id="touch-reload">RELOAD</button></div>
+      </div>
+      <div id="toast" class="toast"></div>
+    </section>
+    <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD</span></footer>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
