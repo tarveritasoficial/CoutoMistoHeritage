@@ -104,33 +104,58 @@ function riverYAtX(points,x){
  return best.y;
 }
 function riverBridgePass(x,y,r){return r.bridges.some(b=>{const a=b.angle||0,dx=x-b.x,dy=y-b.y,lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);return Math.abs(lx)<36&&Math.abs(ly)<76})}
+function riverNearestPoint(points,x,y){
+ let best=null,bestD=Infinity;
+ for(let j=1;j<points.length;j++){
+  const a=points[j-1],b=points[j],dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(l||1),0,1);
+  const px=a.x+t*dx,py=a.y+t*dy,d=Math.hypot(x-px,y-py);
+  if(d<bestD){bestD=d;best={x:px,y:py,tx:dx/(Math.sqrt(l)||1),ty:dy/(Math.sqrt(l)||1),distance:d}}
+ }
+ return best;
+}
+function riverDistance(x,y){
+ let best=Infinity;
+ for(const pts of RIVER_LINES){const p=riverNearestPoint(pts,x,y);if(p&&p.distance<best)best=p.distance}
+ return best;
+}
 function riverBlocked(x,y){
  for(let i=0;i<RIVER_DEFS.length;i++){
   const r=RIVER_DEFS[i];if(riverBridgePass(x,y,r))continue;
-  const pts=RIVER_LINES[i];
-  for(let j=1;j<pts.length;j++){
-   const a=pts[j-1],b=pts[j],dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(l||1),0,1);
-   if(Math.hypot(x-(a.x+t*dx),y-(a.y+t*dy))<57)return true;
-  }
+  const p=riverNearestPoint(RIVER_LINES[i],x,y);
+  if(p&&p.distance<64)return true;
  }
  return false;
 }
 function riverRouteTarget(from,to){
  for(let i=0;i<RIVER_DEFS.length;i++){
-  const r=RIVER_DEFS[i],ya=riverYAtX(RIVER_LINES[i],from.x),yb=riverYAtX(RIVER_LINES[i],to.x);
-  const sa=from.y-ya,sb=to.y-yb;
-  if(sa*sb<0&&!riverBridgePass(from.x,from.y,r)){
-   let bridge=r.bridges[0],best=Infinity;
-   for(const b of r.bridges){const score=dist(from,b)+dist(b,to);if(score<best){best=score;bridge=b}}
-   if(Math.abs(from.x-bridge.x)<58&&Math.abs(from.y-bridge.y)<88)return bridge;
-   return {x:bridge.x,y:bridge.y+(sa>0?78:-78)};
-  }
+  const r=RIVER_DEFS[i];
+  if(riverBridgePass(from.x,from.y,r))continue;
+  const a=riverNearestPoint(RIVER_LINES[i],from.x,from.y),b=riverNearestPoint(RIVER_LINES[i],to.x,to.y);
+  if(!a||!b)continue;
+  const crossA=a.tx*(from.y-a.y)-a.ty*(from.x-a.x),crossB=b.tx*(to.y-b.y)-b.ty*(to.x-b.x);
+  if(crossA*crossB>=0)continue;
+  let bridge=r.bridges[0],best=Infinity;
+  for(const candidate of r.bridges){const score=dist(from,candidate)+dist(candidate,to);if(score<best){best=score;bridge=candidate}}
+  // The bridge's long axis is its local Y axis. Approach from the bank on the
+  // unit's current side, then walk onto the deck before continuing.
+  const nx=-Math.sin(bridge.angle||0),ny=Math.cos(bridge.angle||0);
+  const side=Math.sign((from.x-bridge.x)*nx+(from.y-bridge.y)*ny)||1;
+  const approach={x:bridge.x+nx*side*88,y:bridge.y+ny*side*88};
+  return dist(from,approach)>9?approach:bridge;
  }
  return to;
 }
+function moveLand(u,dx,dy){
+ const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/7)),sx=dx/steps,sy=dy/steps;
+ for(let i=0;i<steps;i++){
+  const nx=clamp(u.x+sx,12,WORLD.w-12),ny=clamp(u.y+sy,12,WORLD.h-12);
+  if(!riverBlocked(nx,u.y))u.x=nx;
+  if(!riverBlocked(u.x,ny))u.y=ny;
+ }
+}
 function moveToward(u,p,len){
  const goal=riverRouteTarget(u,p),d=dist(u,goal),a=angle(u,goal),step=Math.min(len,d);
- u.x+=Math.cos(a)*step;u.y+=Math.sin(a)*step;return a;
+ moveLand(u,Math.cos(a)*step,Math.sin(a)*step);return a;
 }
 function stepTo(u,p,len){return moveToward(u,p,len)}
 // Friendly troops cross the wall line through a gate (or a breach). Returns the next point to walk to.
@@ -230,7 +255,7 @@ function siege(e,dt,rad){
  const plan=assaultPlan(e);e.wallId=plan.w.id;
  e.dir=Math.atan2(plan.pt.y-e.y,plan.pt.x-e.x);
  const speed=e.type==='elephant'?42:e.type==='cavalry'?105:82;
- const move=()=>{e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt};
+ const move=()=>moveToward(e,plan.pt,speed*dt);
  if(plan.breach){move();return}
  const c=wallContact(plan.w,e);
  if(c.sep>rad+8)move();
@@ -287,7 +312,7 @@ function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if
 // Reserves hold their line: they only react to enemies inside the fort or pressing against its walls.
 function nearestThreat(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0||Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy)>440)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
 function update(dt){if(state!=='playing')return;if(victoryTimer>0){victoryTimer-=dt;if(victoryTimer<=0){victory();return}}elapsed+=dt;toastTimer=Math.max(0,toastTimer-dt);if(!toastTimer)ui.toast.classList.remove('show');bannerTimer=Math.max(0,bannerTimer-dt);if(!bannerTimer)ui.banner.classList.remove('show');
-const oldPlayerX=player.x,oldPlayerY=player.y;const mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+mobileMove.x,my=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+mobileMove.y;const ml=Math.hypot(mx,my)||1;player.vx=mx/ml*190;player.vy=my/ml*190;player.x=clamp(player.x+player.vx*dt,30,WORLD.w-30);player.y=clamp(player.y+player.vy*dt,30,WORLD.h-30);if(riverBlocked(player.x,player.y)){player.x=oldPlayerX;player.y=oldPlayerY}pushOutOfWalls(player,12,true);
+const mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+mobileMove.x,my=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+mobileMove.y;const ml=Math.hypot(mx,my)||1;player.vx=mx/ml*190;player.vy=my/ml*190;moveLand(player,player.vx*dt,player.vy*dt);pushOutOfWalls(player,12,true);
 const aim=worldPoint(mouse.x,mouse.y);if(mouse.x||mouse.y)player.dir=angle(player,aim);if(touchFire){const target=nearestEnemy(player,1000);if(target)player.dir=angle(player,target);else{const camp=camps.filter(c=>!c.destroyed).sort((a,b)=>dist(player,a)-dist(player,b))[0];if(camp)player.dir=angle(player,camp)}}player.fire=Math.max(0,player.fire-dt);player.sword=Math.max(0,player.sword-dt);player.invuln=Math.max(0,player.invuln-dt);
 if(player.reload>0){player.reload-=dt;if(player.reload<=0){player.ammo=player.maxAmmo;toast('Musket reloaded')}}if((mouse.down||touchFire)&&player.fire<=0&&player.reload<=0){if(player.ammo>0){shoot(player,player.dir,'couto',40,760);player.ammo--;player.fire=.28}else reload()}
 if(cannonCooldown>0)cannonCooldown-=dt;
@@ -396,7 +421,7 @@ function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save(
   for(const c of CAMP_SITES){const d=Math.hypot(c.x-b.x,c.y-b.y);if(d<campScore){campScore=d;camp=c}}
   const start={x:WORLD.cx+Math.cos(gate)*300,y:WORLD.cy+Math.sin(gate)*300};
   const finish={x:camp.x,y:camp.y};
-  b.angle=Math.atan2(finish.y-start.y,finish.x-start.x)-Math.PI/2;
+  const near=riverNearestPoint(RIVER_LINES[RIVER_DEFS.indexOf(river)],b.x,b.y),nx=-near.ty,ny=near.tx,sign=Math.sign((finish.x-start.x)*nx+(finish.y-start.y)*ny)||1;b.angle=Math.atan2(ny*sign,nx*sign)-Math.PI/2;
   routes.push([start,{x:b.x,y:b.y},finish]);
  }
  ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
@@ -500,7 +525,7 @@ function drawEnemyCamp(c){
 function drawTrees(){
  for(let i=0;i<360;i++){
   const x=(i*271+85)%WORLD.w,y=(i*193+40)%WORLD.h;
-  if(!onScreen(x,y,38)||Math.hypot(x-WORLD.cx,y-WORLD.cy)<540)continue;
+  if(!onScreen(x,y,38)||Math.hypot(x-WORLD.cx,y-WORLD.cy)<540||riverDistance(x,y)<92)continue;
   let near=false;for(const s of CAMP_SITES)if(Math.hypot(x-s.x,y-s.y)<190){near=true;break}
   if(near)continue;
   const r=10+(i*7)%11;
