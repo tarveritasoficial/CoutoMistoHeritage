@@ -4,6 +4,7 @@ const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d');
 const ui = {menu:$('menu'),loading:$('loading'),hud:$('hud'),pause:$('pause'),over:$('gameover'),orders:$('orders'),mobile:$('mobile-controls'),wave:$('wave'),score:$('score'),guards:$('guards'),health:$('health-bar'),healthText:$('health-text'),fort:$('fort-bar'),fortText:$('fort-text'),ammo:$('ammo'),reload:$('reload-state'),banner:$('wave-banner'),toast:$('toast')};
 const WORLD = {w:1800,h:1400,cx:900,cy:700};
+const FORT_WALL_RADIUS=350, DOOR_HALF_ANGLE=.105, DOOR_MAX_HP=240;
 const FACTIONS = {
   couto:{name:'Couto Misto',a:'#244b36',b:'#d8b65f',dark:'#152e21'},
   portugal:{name:'Portugal',a:'#a83235',b:'#287447',dark:'#681f27'},
@@ -12,8 +13,10 @@ const FACTIONS = {
   england:{name:'England',a:'#b63c3c',b:'#eee9dc',dark:'#702323'}
 };
 const keys = Object.create(null), mouse = {x:0,y:0,down:false};
-let dpr=1, vw=0,vh=0, camera={x:0,y:0}, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], defenders=[], villagers=[], player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0;
+let dpr=1, vw=0,vh=0, camera={x:0,y:0}, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], defenders=[], villagers=[], doors=[], player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0;
 const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
+function wallCrossing(x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,fx=x1-WORLD.cx,fy=y1-WORLD.cy,A=dx*dx+dy*dy;if(A===0)return null;const B=2*(fx*dx+fy*dy),C=fx*fx+fy*fy-FORT_WALL_RADIUS*FORT_WALL_RADIUS,disc=B*B-4*A*C;if(disc<0)return null;const root=Math.sqrt(disc),t1=(-B-root)/(2*A),t2=(-B+root)/(2*A),t=t1>=0&&t1<=1?t1:t2>=0&&t2<=1?t2:null;if(t===null)return null;return {x:x1+dx*t,y:y1+dy*t};}
+function wallBlocksBullet(b){const hit=wallCrossing(b.px,b.py,b.x,b.y);if(!hit)return false;const a=Math.atan2(hit.y-WORLD.cy,hit.x-WORLD.cx);return !doors.some(door=>door.destroyed&&Math.abs(Math.atan2(Math.sin(a-door.angle),Math.cos(a-door.angle)))<=DOOR_HALF_ANGLE);}
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
 window.addEventListener('resize',resize); resize();
 function worldPoint(sx,sy){return {x:sx+camera.x,y:sy+camera.y}}
@@ -29,7 +32,7 @@ function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){ret
 function reset(){
  camera.x=clamp(WORLD.cx-vw/2,0,WORLD.w-vw);camera.y=clamp(WORLD.cy-vh/2,0,WORLD.h-vh);
  wave=0;score=0;fortress=100;elapsed=0;spawnClock=0;waveGap=2;
- enemies=[];bullets=[];particles=[];villagers=[];guards=[];escorts=[];defenders=[];idCounter=0;
+ enemies=[];bullets=[];particles=[];villagers=[];guards=[];escorts=[];defenders=[];doors=Array.from({length:5},(_,i)=>{const a=-Math.PI/2+i*Math.PI*2/5;return {angle:a,x:WORLD.cx+Math.cos(a)*FORT_WALL_RADIUS,y:WORLD.cy+Math.sin(a)*FORT_WALL_RADIUS,hp:DOOR_MAX_HP,max:DOOR_MAX_HP,destroyed:false}});idCounter=0;
  const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
  const activeCount=clamp(Math.floor(Number($('active-count').value)||0),0,40);
@@ -86,6 +89,17 @@ for(const e of enemies){
  const target=nearestFriendly(e)||{x:WORLD.cx,y:WORLD.cy};
  const d=dist(e,target);e.dir=angle(e,target);
  const coreDistance=Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy);
+ // Attackers must breach one of the five marked gates before entering the fortress.
+ if(e.type!=='cannon'&&coreDistance>FORT_WALL_RADIUS-14){
+  let gate=doors[0];for(const candidate of doors)if(dist(e,candidate)<dist(e,gate))gate=candidate;
+  if(!gate.destroyed){e.dir=angle(e,gate);const gateDistance=dist(e,gate),speed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='swordsman'?82:47;
+   if(gateDistance>24){e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt}
+   else if(e.attack<=0){gate.hp-=e.type==='elephant'?48:e.type==='cavalry'?27:e.type==='swordsman'?21:15;e.attack=e.type==='elephant'?1.15:1.0;if(gate.hp<=0){gate.hp=0;gate.destroyed=true;toast('A fortress gate has been breached!');banner('GATE DESTROYED · ENEMIES INCOMING')}}
+   continue;
+  }
+  // Once a gate is down, attackers funnel through that opening instead of crossing the wall elsewhere.
+  if(coreDistance>FORT_WALL_RADIUS-14){e.dir=angle(e,{x:WORLD.cx,y:WORLD.cy});const speed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='swordsman'?82:47;e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt;continue;}
+ }
  if(e.type!=='cannon'&&coreDistance<145&&e.attack<=0){fortress=Math.max(0,fortress-(e.type==='elephant'?4.5:e.type==='cavalry'?2.8:1.6));e.attack=1.1;continue;}
  if(e.type==='cannon'){
   if(e.attack<=0){shoot(e,e.dir,'enemy',30,285);e.attack=3.1}
@@ -107,7 +121,7 @@ for(const e of enemies){
  else if(e.attack<=0){shoot(e,e.dir,'enemy',13,390);e.attack=1.65}
 }
 for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
-for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}}else{for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
+for(const b of bullets){b.px=b.x;b.py=b.y;b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(wallBlocksBullet(b)){b.life=0;continue}if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}}else{for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(enemies.some(e=>dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
 if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x-vw/2,0,WORLD.w-vw);camera.y=clamp(player.y-vh/2,0,WORLD.h-vh);updateHud()}
@@ -123,6 +137,10 @@ function drawTrees(){for(let i=0;i<65;i++){const x=(i*271+85)%WORLD.w,y=(i*193+4
 function drawFortress(){const cx=WORLD.cx,cy=WORLD.cy;
 const outerWorks=starPoints(cx,cy,485,390);pathPoly(outerWorks);ctx.strokeStyle='#493f2d';ctx.lineWidth=24;ctx.stroke();ctx.strokeStyle='#9b8355';ctx.lineWidth=7;ctx.setLineDash([18,10]);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#59604f';pathPoly(fortOuter);ctx.fill();ctx.lineWidth=22;ctx.strokeStyle='#b9ad8e';ctx.stroke();
 pathPoly(fortInner);ctx.fillStyle='#a9a080';ctx.fill();ctx.lineWidth=15;ctx.strokeStyle='#d1c5a2';ctx.stroke();
+// Stone curtain wall with five individually destructible gates.
+ctx.strokeStyle='#746c55';ctx.lineWidth=17;ctx.lineCap='butt';
+for(let i=0;i<doors.length;i++){const start=doors[i].angle+DOOR_HALF_ANGLE,end=(i===doors.length-1?doors[0].angle+Math.PI*2:doors[i+1].angle)-DOOR_HALF_ANGLE;ctx.beginPath();ctx.arc(cx,cy,FORT_WALL_RADIUS,start,end);ctx.stroke()}
+for(const door of doors){ctx.save();ctx.translate(door.x,door.y);ctx.rotate(door.angle+Math.PI/2);if(!door.destroyed){ctx.fillStyle='#493523';ctx.fillRect(-34,-10,68,20);ctx.strokeStyle='#b38a4d';ctx.lineWidth=3;ctx.strokeRect(-34,-10,68,20);ctx.strokeStyle='#d1b276';ctx.lineWidth=2;for(let k=-22;k<=22;k+=22){ctx.beginPath();ctx.moveTo(k,-8);ctx.lineTo(k,8);ctx.stroke()}ctx.fillStyle='#201b14';ctx.fillRect(-28,-17,56,4);ctx.fillStyle='#d5b45f';ctx.fillRect(-28,-17,56*(door.hp/door.max),4)}else{ctx.fillStyle='#8c7958';ctx.fillRect(-34,-7,20,8);ctx.fillRect(8,-9,25,7);ctx.fillStyle='#5b4935';ctx.fillRect(-8,-3,17,6)}ctx.restore()}
 pathPoly(starPoints(cx,cy,255,195));ctx.fillStyle='#a5a080';ctx.fill();ctx.strokeStyle='#c9bd9b';ctx.lineWidth=9;ctx.stroke();
 ctx.fillStyle='#68764d';ctx.beginPath();ctx.arc(cx,cy,190,0,Math.PI*2);ctx.fill();
 ctx.fillStyle='#9a8d68';ctx.fillRect(cx-48,cy-30,96,60);ctx.fillStyle='#5b4a35';ctx.fillRect(cx-18,cy-30,36,60);ctx.fillStyle='#c4b58d';ctx.fillRect(cx-80,cy+78,160,8);ctx.fillRect(cx-80,cy-86,160,8);
