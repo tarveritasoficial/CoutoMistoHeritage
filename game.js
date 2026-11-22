@@ -26,14 +26,14 @@ function pathPoly(pts){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1
 const fortOuter=starPoints(WORLD.cx,WORLD.cy,390,315), fortInner=starPoints(WORLD.cx,WORLD.cy,320,250);
 const guardSpots=Array.from({length:8},(_,i)=>{const a=-Math.PI/2+i*Math.PI/4;return {x:WORLD.cx+Math.cos(a)*326,y:WORLD.cy+Math.sin(a)*326,angle:a}});
 function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){return {id:++idCounter,x,y,vx:0,vy:0,dir:0,hp:type==='elephant'?210:elite?145:type==='cavalry'?85:55,max:type==='elephant'?210:elite?145:type==='cavalry'?85:55,faction,type,friendly,elite,attack:rand(.2,1),reload:rand(.2,1.5),flash:0,dead:false,charge:0}}
-function reset(){camera.x=clamp(WORLD.cx-vw/2,0,WORLD.w-vw);camera.y=clamp(WORLD.cy-vh/2,0,WORLD.h-vh);wave=0;score=0;fortress=100;elapsed=0;spawnClock=0;waveGap=2;enemies=[];bullets=[];particles=[];villagers=[];defenders=[];idCounter=0;guards=guardSpots.map((p,i)=>{const g=makeSoldier(p.x,p.y,'couto','rifleman',true,true);g.slot=i;g.home={x:p.x,y:p.y};g.dir=p.angle+Math.PI;return g});const total=Math.max(8,Number($('defender-count').value)||12);for(let i=0;i<total-8;i++){const a=-Math.PI/2+(i%8)*Math.PI/4;const d=makeSoldier(WORLD.cx+Math.cos(a)*105,WORLD.cy+Math.sin(a)*82,'couto','swordsman',true,false);d.attack=rand(.1,.8);defenders.push(d)}player={x:WORLD.cx,y:WORLD.cy+65,vx:0,vy:0,dir:-Math.PI/2,hp:100,max:100,ammo:6,maxAmmo:6,reload:0,fire:0,sword:0,invuln:0};for(let i=0;i<15;i++)villagers.push({x:WORLD.cx+rand(-205,205),y:WORLD.cy+rand(-165,165),dir:rand(0,6.28),speed:rand(8,17),panic:0});ui.wave.textContent='0';ui.score.textContent='0';ui.guards.textContent='8/8';updateHud()}
+function reset(){camera.x=clamp(WORLD.cx-vw/2,0,WORLD.w-vw);camera.y=clamp(WORLD.cy-vh/2,0,WORLD.h-vh);wave=0;score=0;fortress=100;elapsed=0;spawnClock=0;waveGap=2;enemies=[];bullets=[];particles=[];villagers=[];defenders=[];idCounter=0;guards=guardSpots.map((p,i)=>{const g=makeSoldier(p.x,p.y,'couto','rifleman',true,true);g.slot=i;g.home={x:p.x,y:p.y};g.dir=p.angle+Math.PI;return g});const total=clamp(Number($('defender-count').value)||12,8,40);for(let i=0;i<total-8;i++){const outer=i%2===0,ring=outer?258:174,slot=Math.floor(i/2),slots=Math.ceil((total-8)/2),a=-Math.PI/2+slot*Math.PI*2/Math.max(1,slots)+(outer?0:Math.PI/Math.max(1,slots));const d=makeSoldier(WORLD.cx+Math.cos(a)*ring,WORLD.cy+Math.sin(a)*ring,'couto','swordsman',true,false);d.post={x:d.x,y:d.y};d.attack=rand(.1,.8);d.line=outer?2:3;defenders.push(d)}player={x:WORLD.cx,y:WORLD.cy+65,vx:0,vy:0,dir:-Math.PI/2,hp:100,max:100,ammo:6,maxAmmo:6,reload:0,fire:0,sword:0,invuln:0};for(let i=0;i<15;i++)villagers.push({x:WORLD.cx+rand(-205,205),y:WORLD.cy+rand(-165,165),dir:rand(0,6.28),speed:rand(8,17),panic:0});ui.wave.textContent='0';ui.score.textContent='0';ui.guards.textContent='8/8';updateHud()}
 function updateHud(){ui.health.style.width=(player.hp/player.max*100)+'%';ui.healthText.textContent=Math.ceil(player.hp);ui.fort.style.width=fortress+'%';ui.fortText.textContent=Math.ceil(fortress)+'%';ui.ammo.textContent=player.ammo+' / '+player.maxAmmo;ui.reload.textContent=player.reload>0?'RELOADING':'READY';ui.guards.textContent=(guards.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(8+defenders.length);ui.wave.textContent=wave;ui.score.textContent=score}
 function start(){reset();state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');ui.mobile.classList.remove('hidden');banner('DEFEND THE STAR FORTRESS');last=performance.now()}
 function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove('hidden')}else if(state==='paused'){state='playing';ui.pause.classList.add('hidden');last=performance.now()}}function mainMenu(){state='menu';ui.menu.classList.remove('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');last=performance.now()}
 function gameOver(){state='over';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent='Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(8+defenders.length)}
 function reload(){if(player.reload<=0&&player.ammo<player.maxAmmo){player.reload=1.55;toast('Reloading musket…')}}
 function shoot(from,dir,faction,damage=24,speed=520){bullets.push({x:from.x+Math.cos(dir)*17,y:from.y+Math.sin(dir)*17,vx:Math.cos(dir)*speed,vy:Math.sin(dir)*speed,life:1.5,faction,damage,r:3});for(let i=0;i<4;i++)particles.push({x:from.x+Math.cos(dir)*12,y:from.y+Math.sin(dir)*12,vx:rand(-35,35)+Math.cos(dir)*rand(15,55),vy:rand(-35,35)+Math.sin(dir)*rand(15,55),life:rand(.12,.28),max:.28,color:'#f4d58c',r:rand(1,3)})}
-function sword(){if(player.sword>0)return;player.sword=.42;let hit=0;for(const e of enemies){if(e.hp>0&&dist(player,e)<52&&Math.abs(angle(player,e)-player.dir)<1.2){e.hp-=48;hit++ ;if(e.hp<=0)kill(e)}}if(hit)toast('Sword strike!')}
+function sword(){if(player.sword>0)return;player.sword=.42;let hit=0;for(const e of enemies){if(e.hp>0&&dist(player,e)<58&&Math.abs(Math.atan2(Math.sin(angle(player,e)-player.dir),Math.cos(angle(player,e)-player.dir)))<1.25){e.hp-=48;hit++ ;if(e.hp<=0)kill(e)}}if(hit)toast('Sword strike!')}
 function spawnWave(){wave++;ui.wave.textContent=wave;banner('ENEMY WAVE '+wave);const count=5+wave*3;for(let i=0;i<count;i++){const side=i%4,edge=side===0?{x:rand(90,1710),y:65}:side===1?{x:1710,y:rand(90,1310)}:side===2?{x:rand(90,1710),y:1335}:{x:90,y:rand(90,1310)};const factions=['portugal','spain','france','england'];const faction=factions[(Math.floor((wave-1)/2)+Math.floor(i/Math.max(1,count/4)))%4];let type='rifleman';const roll=Math.random();if(wave>=3&&roll<.12)type='cavalry';else if(wave>=2&&roll<.34)type='swordsman';else if(wave>=7&&roll<.055)type='elephant';const e=makeSoldier(edge.x,edge.y,faction,type,false);e.hp+=Math.floor(wave*.6);e.max=e.hp;enemies.push(e)}if(wave>=4&&wave%2===0){const e=makeSoldier(rand(150,1650),rand(100,1300),'spain','cannon',false);e.hp=130;e.max=130;enemies.push(e)}spawnClock=0}
 function kill(e){if(e.dead)return;e.dead=true;score+=e.type==='elephant'?120:e.type==='cavalry'?55:25;for(let i=0;i<9;i++)particles.push({x:e.x,y:e.y,vx:rand(-80,80),vy:rand(-80,80),life:rand(.25,.65),max:.65,color:i%2?'#b8a27a':'#6e3d32',r:rand(2,5)})}
 function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
@@ -44,10 +44,41 @@ if(player.reload>0){player.reload-=dt;if(player.reload<=0){player.ammo=player.ma
 if(cannonCooldown>0)cannonCooldown-=dt;
 if(enemies.length===0){spawnClock+=dt;if(spawnClock>waveGap)spawnWave()}else spawnClock=0;
 for(const g of guards){if(g.hp<=0)continue;const target=nearestEnemy(g,510);if(target){g.dir=angle(g,target);g.attack-=dt;if(g.attack<=0){shoot(g,g.dir,'couto',eliteDamage(g),500);g.attack=rand(1.2,2.1)}}else{const dx=g.home.x-g.x,dy=g.home.y-g.y;g.x+=dx*dt*1.5;g.y+=dy*dt*1.5}}
-for(const d of defenders){if(d.hp<=0)continue;const target=nearestEnemy(d,430);if(target){const dd=dist(d,target);d.dir=angle(d,target);if(dd>27){d.x+=Math.cos(d.dir)*72*dt;d.y+=Math.sin(d.dir)*72*dt}else{d.attack-=dt;if(d.attack<=0){target.hp-=25;d.attack=.8;if(target.hp<=0)kill(target)}}}else{const dx=WORLD.cx-d.x,dy=WORLD.cy-d.y;if(Math.hypot(dx,dy)>190){d.x+=dx*dt*.35;d.y+=dy*dt*.35}}}
-for(const e of enemies){if(e.hp<=0)continue;e.attack-=dt;const target=nearestFriendly(e);if(e.type==='cannon'){if(e.attack<=0){const t=target||{x:WORLD.cx,y:WORLD.cy};shoot(e,angle(e,t),'enemy',34,260);e.attack=3.4}continue}
-if(e.type==='elephant'||e.type==='cavalry'){const t=target||{x:WORLD.cx,y:WORLD.cy};const d=dist(e,t);e.dir=angle(e,t);const speed=e.type==='elephant'?42:100;e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt;if(d<38&&e.attack<=0){if(target===player){player.hp-=e.type==='elephant'?23:16;player.invuln=.4}else if(target&&target.hp!==undefined)target.hp-=e.type==='elephant'?30:18;e.attack=1.1}continue}
-if(e.type==='swordsman'){const d=dist(e,target||{x:WORLD.cx,y:WORLD.cy});e.dir=angle(e,target||{x:WORLD.cx,y:WORLD.cy});if(d>29){e.x+=Math.cos(e.dir)*76*dt;e.y+=Math.sin(e.dir)*76*dt}else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=13;player.invuln=.45}}else if(target&&target.hp!==undefined)target.hp-=17;e.attack=.82}continue}const dfort=Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy);if(dfort>295){e.dir=angle(e,{x:WORLD.cx,y:WORLD.cy});e.x+=Math.cos(e.dir)*48*dt;e.y+=Math.sin(e.dir)*48*dt}else{if(e.attack<=0){if(target&&target!==player&&target.hp!==undefined)target.hp-=10;else fortress=Math.max(0,fortress-1.3);if(target===player&&player.invuln<=0){player.hp-=7;player.invuln=.35}e.attack=1.15}if(target&&dist(e,target)<250&&e.type==='rifleman'&&e.attack<=0){shoot(e,angle(e,target),'enemy',12,370)}}}
+for(const d of defenders){
+ if(d.hp<=0)continue;
+ const target=nearestEnemy(d,430);
+ if(target){
+  const dd=dist(d,target);d.dir=angle(d,target);
+  if(dd>30){d.x+=Math.cos(d.dir)*86*dt;d.y+=Math.sin(d.dir)*86*dt}
+  else{d.attack-=dt;if(d.attack<=0){target.hp-=30;d.attack=.72;if(target.hp<=0)kill(target)}}
+ }else if(d.post){
+  const pd=dist(d,d.post);if(pd>4){const a=angle(d,d.post);d.dir=a;d.x+=Math.cos(a)*Math.min(86*dt,pd);d.y+=Math.sin(a)*Math.min(86*dt,pd)}
+ }
+}
+for(const e of enemies){
+ if(e.hp<=0)continue;
+ e.attack-=dt;
+ const target=nearestFriendly(e)||{x:WORLD.cx,y:WORLD.cy};
+ const d=dist(e,target);e.dir=angle(e,target);
+ if(e.type==='cannon'){
+  if(e.attack<=0){shoot(e,e.dir,'enemy',30,285);e.attack=3.1}
+  continue;
+ }
+ if(e.type==='elephant'||e.type==='cavalry'){
+  const speed=e.type==='elephant'?42:105;
+  if(d>34){e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt}
+  else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=e.type==='elephant'?22:15;player.invuln=.45}}else if(target.hp!==undefined)target.hp-=e.type==='elephant'?32:20;e.attack=1.05}
+  continue;
+ }
+ if(e.type==='swordsman'){
+  if(d>31){e.x+=Math.cos(e.dir)*82*dt;e.y+=Math.sin(e.dir)*82*dt}
+  else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=15;player.invuln=.48}}else if(target.hp!==undefined)target.hp-=19;e.attack=.78}
+  continue;
+ }
+ // Musketeers keep a firing distance and shoot at the closest defender.
+ if(d>245){e.x+=Math.cos(e.dir)*47*dt;e.y+=Math.sin(e.dir)*47*dt}
+ else if(e.attack<=0){shoot(e,e.dir,'enemy',13,390);e.attack=1.65}
+}
 for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
 for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}}else{for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
@@ -63,14 +94,14 @@ function drawVillage(x,y){ctx.fillStyle='#a98a58';for(let i=0;i<5;i++){const xx=
 function drawCamp(x,y,f){ctx.fillStyle='#d5c69b';for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(x+i*32,y);ctx.lineTo(x+14+i*32,y-25);ctx.lineTo(x+28+i*32,y);ctx.fill()}ctx.fillStyle=FACTIONS[f].a;ctx.fillRect(x+50,y-42,3,42);ctx.fillStyle=FACTIONS[f].b;ctx.fillRect(x+53,y-40,22,12)}
 function drawTrees(){for(let i=0;i<65;i++){const x=(i*271+85)%WORLD.w,y=(i*193+40)%WORLD.h;if(Math.hypot(x-WORLD.cx,y-WORLD.cy)>445){ctx.fillStyle='#344f32';ctx.beginPath();ctx.arc(x,y,rand(10,20),0,Math.PI*2);ctx.fill();ctx.fillStyle='#6c8150';ctx.beginPath();ctx.arc(x-4,y-5,rand(5,10),0,Math.PI*2);ctx.fill()}}}
 function drawFortress(){const cx=WORLD.cx,cy=WORLD.cy;
-pathPoly(fortOuter);ctx.fillStyle='#59604f';ctx.fill();ctx.lineWidth=22;ctx.strokeStyle='#b9ad8e';ctx.stroke();
+const outerWorks=starPoints(cx,cy,485,390);pathPoly(outerWorks);ctx.strokeStyle='#493f2d';ctx.lineWidth=24;ctx.stroke();ctx.strokeStyle='#9b8355';ctx.lineWidth=7;ctx.setLineDash([18,10]);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#59604f';pathPoly(fortOuter);ctx.fill();ctx.lineWidth=22;ctx.strokeStyle='#b9ad8e';ctx.stroke();
 pathPoly(fortInner);ctx.fillStyle='#a9a080';ctx.fill();ctx.lineWidth=15;ctx.strokeStyle='#d1c5a2';ctx.stroke();
-pathPoly(starPoints(cx,cy,245,185));ctx.fillStyle='#a5a080';ctx.fill();ctx.strokeStyle='#c9bd9b';ctx.lineWidth=9;ctx.stroke();
+pathPoly(starPoints(cx,cy,255,195));ctx.fillStyle='#a5a080';ctx.fill();ctx.strokeStyle='#c9bd9b';ctx.lineWidth=9;ctx.stroke();
 ctx.fillStyle='#68764d';ctx.beginPath();ctx.arc(cx,cy,190,0,Math.PI*2);ctx.fill();
 ctx.fillStyle='#9a8d68';ctx.fillRect(cx-48,cy-30,96,60);ctx.fillStyle='#5b4a35';ctx.fillRect(cx-18,cy-30,36,60);ctx.fillStyle='#c4b58d';ctx.fillRect(cx-80,cy+78,160,8);ctx.fillRect(cx-80,cy-86,160,8);
 for(let i=0;i<5;i++){const a=-Math.PI/2+i*Math.PI*2/5,x=cx+Math.cos(a)*365,y=cy+Math.sin(a)*365;ctx.fillStyle='#777b67';ctx.beginPath();ctx.arc(x,y,36,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d0c4a2';ctx.lineWidth=7;ctx.stroke();drawCannon(x,y,a+Math.PI)}
-for(let i=0;i<8;i++){const p=guardSpots[i];ctx.fillStyle='#d4c69e';ctx.beginPath();ctx.arc(p.x,p.y,16,0,Math.PI*2);ctx.fill()}
-ctx.fillStyle='#e1d2a9';ctx.font='bold 16px Cinzel';ctx.textAlign='center';ctx.fillText('COUTO MISTO',cx,cy-135);ctx.font='9px Cinzel';ctx.fillText('THE STAR FORTRESS',cx,cy-118);ctx.textAlign='left';
+ctx.fillStyle='#d7c28a';ctx.font='bold 9px Inter';ctx.textAlign='center';ctx.fillText('OUTER DEFENCE LINE',cx,cy-462);ctx.fillText('RAMPART LINE',cx,cy-372);ctx.fillText('INNER RESERVE',cx,cy-245);ctx.textAlign='left';for(let i=0;i<8;i++){const p=guardSpots[i];ctx.fillStyle='#d4c69e';ctx.beginPath();ctx.arc(p.x,p.y,16,0,Math.PI*2);ctx.fill()}
+ctx.fillStyle='#e1d2a9';ctx.font='bold 16px Cinzel';ctx.textAlign='center';ctx.fillText('COUTO MISTO',cx,cy-135);ctx.font='9px Cinzel';ctx.fillText('THE STAR FORTRESS · INNER KEEP',cx,cy-118);ctx.textAlign='left';
 for(let i=0;i<5;i++){const a=-Math.PI/2+i*Math.PI*2/5;ctx.save();ctx.translate(cx+Math.cos(a)*370,cy+Math.sin(a)*370);ctx.rotate(a+Math.PI/2);ctx.fillStyle='#244b36';ctx.fillRect(-2,-50,4,50);ctx.fillStyle='#d8b65f';ctx.fillRect(2,-48,27,15);ctx.restore()}}
 function drawCannon(x,y,a){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.fillStyle='#493d2b';ctx.fillRect(-17,-7,34,14);ctx.fillStyle='#252a25';ctx.fillRect(-22,-4,44,8);ctx.fillStyle='#96784a';ctx.beginPath();ctx.arc(-13,12,8,0,Math.PI*2);ctx.arc(13,12,8,0,Math.PI*2);ctx.fill();ctx.restore()}
 function drawCharacter(c,isPlayer=false){const s={x:c.x,y:c.y};if(c.x-camera.x<-45||c.y-camera.y<-45||c.x-camera.x>vw+45||c.y-camera.y>vh+45)return;ctx.save();ctx.translate(s.x,s.y);ctx.rotate(c.dir||0);const f=FACTIONS[c.faction]||FACTIONS.couto;
