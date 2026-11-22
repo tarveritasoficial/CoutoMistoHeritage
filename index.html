@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17251d">
   <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
   <title>Couto Misto Heritage</title>
-  <link rel="stylesheet" href="styles.css?v=20261122-2350">
+  <link rel="stylesheet" href="styles.css?v=20261122-2359">
 </head>
 <body>
   <main id="game-shell">
@@ -18,7 +18,7 @@
     <section id="stage">
       <canvas id="game" aria-label="Couto Misto fortress defense game"></canvas>
       <div id="loading" class="overlay"><div class="loading-card"><div class="loader-crest">✦</div><h1>COUTO MISTO HERITAGE</h1><p>Preparing the fortress…</p><div class="loading-track"><i></i></div></div></div>
-      <div id="menu" class="overlay hidden"><div class="menu-card wide">
+      <section id="trailer-screen" class="trailer-screen hidden" aria-label="Game trailer">\n        <video id="trailer-video" class="trailer-video" autoplay muted playsinline preload="auto">\n          <source src="CoutoMistoHeritage_intro_720p.mp4" type="video/mp4">\n        </video>\n        <div class="trailer-shade"></div>\n        <div class="trailer-brand"><span>✦ COUTO MISTO HERITAGE</span><small>THE FORTRESS MUST STAND</small></div>\n        <div class="trailer-controls"><button id="trailer-sound" class="trailer-btn" type="button">ENABLE SOUND</button><button id="trailer-skip" class="trailer-btn trailer-skip" type="button">SKIP INTRO ↗</button></div>\n        <div class="trailer-caption">HOLD THE FORTRESS · DEFEND YOUR HERITAGE</div>\n      </section>\n      <div id="menu" class="overlay hidden"><div class="menu-card wide">
         <div class="menu-left">
           <div class="eyebrow">A HISTORICAL FORTRESS DEFENCE</div>
           <h1>COUTO MISTO<br><em>HERITAGE</em></h1>
@@ -73,6 +73,6 @@
     </section>
     <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD</span></footer>
   </main>
-  <script src="game.js?v=20261122-2350"></script>
+  <script src="game.js?v=20261122-2359"></script>
 </body>
 </html>
