@@ -103,7 +103,7 @@ function riverYAtX(points,x){
  }
  return best.y;
 }
-function riverBridgePass(x,y,r){return r.bridges.some(b=>{const a=b.angle||0,dx=x-b.x,dy=y-b.y,lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);return Math.abs(lx)<36&&Math.abs(ly)<76})}
+function riverBridgePass(x,y,r){return r.bridges.some(b=>{const a=b.angle||0,dx=x-b.x,dy=y-b.y,lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);return Math.abs(lx)<30&&Math.abs(ly)<76})}
 function riverNearestPoint(points,x,y){
  let best=null,bestD=Infinity;
  for(let j=1;j<points.length;j++){
@@ -146,9 +146,12 @@ function riverRouteTarget(from,to){
  return to;
 }
 function moveLand(u,dx,dy){
- const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/7)),sx=dx/steps,sy=dy/steps;
+ const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/5)),sx=dx/steps,sy=dy/steps;
  for(let i=0;i<steps;i++){
   const nx=clamp(u.x+sx,12,WORLD.w-12),ny=clamp(u.y+sy,12,WORLD.h-12);
+  // Try the real movement vector first so diagonal bridges remain traversable.
+  if(!riverBlocked(nx,ny)){u.x=nx;u.y=ny;continue}
+  // If water blocks the diagonal, slide along the bank instead of freezing.
   if(!riverBlocked(nx,u.y))u.x=nx;
   if(!riverBlocked(u.x,ny))u.y=ny;
  }
