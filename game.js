@@ -103,7 +103,7 @@ function riverYAtX(points,x){
  }
  return best.y;
 }
-function riverBridgePass(x,y,r){return r.bridges.some(b=>{const a=b.angle||0,dx=x-b.x,dy=y-b.y,lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);return Math.abs(lx)<55&&Math.abs(ly)<84})}
+function riverBridgePass(x,y,r){return r.bridges.some(b=>{const a=b.angle||0,dx=x-b.x,dy=y-b.y,lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);return Math.abs(lx)<36&&Math.abs(ly)<76})}
 function riverBlocked(x,y){
  for(let i=0;i<RIVER_DEFS.length;i++){
   const r=RIVER_DEFS[i];if(riverBridgePass(x,y,r))continue;
@@ -387,11 +387,21 @@ function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save(
  // Layered meadow colours, grass tufts and small stones make the open field feel lived-in.
  ctx.fillStyle='#65784a';for(let i=0;i<260;i++){const x=(i*197)%WORLD.w,y=(i*317)%WORLD.h;if(!onScreen(x,y,50))continue;const rx=12+(i*17)%24,ry=7+(i*11)%12,rotation=((i*13)%60)/10;ctx.beginPath();ctx.ellipse(x,y,rx,ry,rotation,0,Math.PI*2);ctx.fill()}
  drawTerrainDetails();
- // Main cart tracks: each gate connects to a nearby village or enemy approach.
- ctx.lineCap='round';ctx.beginPath();
- for(const a of GATE_ANGLES){ctx.moveTo(WORLD.cx+Math.cos(a)*300,WORLD.cy+Math.sin(a)*300);ctx.lineTo(WORLD.cx+Math.cos(a)*620,WORLD.cy+Math.sin(a)*620)}
- for(const s of CAMP_SITES){const ca=Math.atan2(s.y-WORLD.cy,s.x-WORLD.cx);let ga=GATE_ANGLES[0],bd=9;for(const a of GATE_ANGLES){const d=Math.abs(Math.atan2(Math.sin(a-ca),Math.cos(a-ca)));if(d<bd){bd=d;ga=a}}ctx.moveTo(WORLD.cx+Math.cos(ga)*620,WORLD.cy+Math.sin(ga)*620);ctx.lineTo(s.x,s.y)}
- ctx.strokeStyle='#66563b';ctx.lineWidth=38;ctx.stroke();ctx.strokeStyle='#a99a70';ctx.lineWidth=28;ctx.stroke();ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2;ctx.setLineDash([10,15]);ctx.stroke();ctx.setLineDash([]);ctx.lineCap='butt';
+ // Cart roads are routed THROUGH bridge centres so no track appears to cross open water.
+ const routes=[];
+ for(const river of RIVER_DEFS)for(const b of river.bridges){
+  let gate=GATE_ANGLES[0],gateScore=Infinity;
+  for(const a of GATE_ANGLES){const gx=WORLD.cx+Math.cos(a)*300,gy=WORLD.cy+Math.sin(a)*300,d=Math.hypot(gx-b.x,gy-b.y);if(d<gateScore){gateScore=d;gate=a}}
+  let camp=CAMP_SITES[0],campScore=Infinity;
+  for(const c of CAMP_SITES){const d=Math.hypot(c.x-b.x,c.y-b.y);if(d<campScore){campScore=d;camp=c}}
+  const start={x:WORLD.cx+Math.cos(gate)*300,y:WORLD.cy+Math.sin(gate)*300};
+  const finish={x:camp.x,y:camp.y};
+  b.angle=Math.atan2(finish.y-start.y,finish.x-start.x)-Math.PI/2;
+  routes.push([start,{x:b.x,y:b.y},finish]);
+ }
+ ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
+ for(const route of routes){ctx.moveTo(route[0].x,route[0].y);ctx.lineTo(route[1].x,route[1].y);ctx.lineTo(route[2].x,route[2].y)}
+ ctx.strokeStyle='#66563b';ctx.lineWidth=38;ctx.stroke();ctx.strokeStyle='#a99a70';ctx.lineWidth=28;ctx.stroke();ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2;ctx.setLineDash([10,15]);ctx.stroke();ctx.setLineDash([]);ctx.lineCap='butt';ctx.lineJoin='miter';
  drawRiversAndBridges();
  drawVillage(1000,820);drawVillage(2300,1700);drawVillage(1500,2060);
  for(const c of camps)drawEnemyCamp(c);
@@ -435,27 +445,23 @@ function drawRiversAndBridges(){
 }
 function drawWoodenBridge(x,y,rotation=0){
  ctx.save();ctx.translate(x,y);ctx.rotate(rotation);
- // Stone abutments and dark shadow
- ctx.fillStyle='rgba(26,31,24,.38)';ctx.fillRect(-55,-72,110,144);
- ctx.fillStyle='#706b58';ctx.fillRect(-52,-68,12,136);ctx.fillRect(40,-68,12,136);
- // timber deck with individual planks
- ctx.fillStyle='#60472e';ctx.fillRect(-43,-68,86,136);
- ctx.fillStyle='#9a7447';ctx.fillRect(-37,-68,74,136);
+ // Narrow stone abutments and a compact timber deck, aligned with the road.
+ ctx.fillStyle='rgba(26,31,24,.38)';ctx.fillRect(-39,-70,78,140);
+ ctx.fillStyle='#706b58';ctx.fillRect(-36,-67,8,134);ctx.fillRect(28,-67,8,134);
+ ctx.fillStyle='#60472e';ctx.fillRect(-29,-67,58,134);
+ ctx.fillStyle='#9a7447';ctx.fillRect(-25,-67,50,134);
  for(let yy=-62;yy<=62;yy+=13){
-  ctx.fillStyle=(yy/13)%2?'#a98553':'#8d6b42';ctx.fillRect(-36,yy,72,10);
-  ctx.strokeStyle='rgba(54,39,25,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-35,yy+10);ctx.lineTo(35,yy+10);ctx.stroke();
+  ctx.fillStyle=(yy/13)%2?'#a98553':'#8d6b42';ctx.fillRect(-24,yy,48,10);
+  ctx.strokeStyle='rgba(54,39,25,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-23,yy+10);ctx.lineTo(23,yy+10);ctx.stroke();
  }
- // sturdy timber rails and posts
- ctx.strokeStyle='#4e3927';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-43,-58);ctx.lineTo(-43,58);ctx.moveTo(43,-58);ctx.lineTo(43,58);ctx.stroke();
- ctx.strokeStyle='#c09a62';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-43,-48);ctx.lineTo(-43,48);ctx.moveTo(43,-48);ctx.lineTo(43,48);ctx.stroke();
- for(const yy of [-58,-20,20,58]){
-  ctx.fillStyle='#62472d';ctx.fillRect(-48,yy-4,10,10);ctx.fillRect(38,yy-4,10,10);
- }
+ ctx.strokeStyle='#4e3927';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-29,-58);ctx.lineTo(-29,58);ctx.moveTo(29,-58);ctx.lineTo(29,58);ctx.stroke();
+ ctx.strokeStyle='#c09a62';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-29,-48);ctx.lineTo(-29,48);ctx.moveTo(29,-48);ctx.lineTo(29,48);ctx.stroke();
+ for(const yy of [-58,-20,20,58]){ctx.fillStyle='#62472d';ctx.fillRect(-32,yy-3,7,8);ctx.fillRect(25,yy-3,7,8)}
  ctx.restore();
 }
 function drawVillage(x,y){
  // A small fenced hamlet with timber-and-stone cottages, gardens and a shared well.
- ctx.save();ctx.translate(x,y);
+ ctx.save();ctx.translate(x,y);ctx.scale(1.65,1.65);
  ctx.fillStyle='rgba(25,31,22,.24)';ctx.beginPath();ctx.ellipse(64,43,125,76,-.08,0,Math.PI*2);ctx.fill();
  ctx.strokeStyle='#5b432b';ctx.lineWidth=5;ctx.setLineDash([12,5]);ctx.strokeRect(-16,-24,172,112);ctx.setLineDash([]);
  ctx.strokeStyle='#b18b54';ctx.lineWidth=2;ctx.strokeRect(-16,-24,172,112);
