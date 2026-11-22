@@ -450,7 +450,6 @@ function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save(
  }
  ctx.lineCap='butt';ctx.lineJoin='miter';
  drawRiversAndBridges();
- drawVillage(1000,820);drawVillage(2300,1700);drawVillage(1500,2060);
  for(const c of camps)drawEnemyCamp(c);
  drawTrees();drawFortress();ctx.restore()}
 function drawRiverPath(r){
@@ -505,26 +504,6 @@ function drawWoodenBridge(x,y,rotation=0){
  ctx.strokeStyle='#c09a62';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-29,-48);ctx.lineTo(-29,48);ctx.moveTo(29,-48);ctx.lineTo(29,48);ctx.stroke();
  for(const yy of [-58,-20,20,58]){ctx.fillStyle='#62472d';ctx.fillRect(-32,yy-3,7,8);ctx.fillRect(25,yy-3,7,8)}
  ctx.restore();
-}
-function drawVillage(x,y){
- // A small fenced hamlet with timber-and-stone cottages, gardens and a shared well.
- ctx.save();ctx.translate(x,y);ctx.scale(1.65,1.65);
- ctx.fillStyle='rgba(25,31,22,.24)';ctx.beginPath();ctx.ellipse(64,43,125,76,-.08,0,Math.PI*2);ctx.fill();
- ctx.strokeStyle='#5b432b';ctx.lineWidth=5;ctx.setLineDash([12,5]);ctx.strokeRect(-16,-24,172,112);ctx.setLineDash([]);
- ctx.strokeStyle='#b18b54';ctx.lineWidth=2;ctx.strokeRect(-16,-24,172,112);
- // fenced vegetable plots
- for(let p=0;p<2;p++){const px=p?100:0;ctx.fillStyle='#52633a';ctx.fillRect(px,62,42,20);ctx.strokeStyle='#8c7448';ctx.lineWidth=2;ctx.strokeRect(px,62,42,20);for(let k=0;k<4;k++){ctx.strokeStyle='#91a05c';ctx.beginPath();ctx.moveTo(px+5+k*10,64);ctx.lineTo(px+5+k*10,80);ctx.stroke()}}
- for(let i=0;i<5;i++){
-  const xx=(i%3)*48,yy=Math.floor(i/3)*42;
-  ctx.fillStyle='rgba(24,25,19,.28)';ctx.fillRect(xx-2,yy+4,34,26);
-  ctx.fillStyle='#a98a58';ctx.fillRect(xx,yy,30,24);
-  ctx.fillStyle='#d0b17a';ctx.beginPath();ctx.moveTo(xx-5,yy+1);ctx.lineTo(xx+15,yy-18);ctx.lineTo(xx+35,yy+1);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='#63452f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(xx-5,yy+1);ctx.lineTo(xx+15,yy-18);ctx.lineTo(xx+35,yy+1);ctx.stroke();
-  ctx.fillStyle='#493625';ctx.fillRect(xx+11,yy+10,8,14);ctx.fillStyle='#d6c59a';ctx.fillRect(xx+3,yy+7,5,5);
- }
- // Stone well and water trough
- ctx.fillStyle='#776d56';ctx.beginPath();ctx.arc(78,39,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#6f8a83';ctx.beginPath();ctx.arc(78,39,6,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d1c39b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(78,39,10,0,Math.PI*2);ctx.stroke();
- ctx.fillStyle='#e6d4a7';ctx.font='bold 11px Cinzel';ctx.textAlign='center';ctx.fillText('VILLAGE',70,112);ctx.restore();
 }
 function drawEnemyCamp(c){
  if(!onScreen(c.x,c.y,170))return;
