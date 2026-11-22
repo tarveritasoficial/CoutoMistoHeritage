@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17251d">
   <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
   <title>Couto Misto Heritage</title>
-  <link rel="stylesheet" href="styles.css?v=20261122-victory1">
+  <link rel="stylesheet" href="styles.css?v=20261122-victoryvideo1">
 </head>
 <body>
   <main id="game-shell">
@@ -59,14 +59,15 @@
       </div></div>
       <div id="pause" class="overlay hidden"><div class="menu-card compact"><div class="eyebrow">FIELD ORDERS</div><h2>PAUSED</h2><p>The battle waits for your command.</p><button id="resume-btn" class="gold-btn">RESUME BATTLE</button><button id="restart-btn" class="ghost-btn">RESTART DEFENCE</button><button id="menu-btn" class="ghost-btn">BACK TO MAIN MENU</button></div></div>
       <div id="victory-screen" class="overlay victory-screen hidden">
-        <div id="victory-cinematic" class="victory-cinematic">
-          <div class="victory-sky"></div><div class="victory-rays"></div>
-          <div class="victory-star">✦</div><div class="victory-flags"><span>✦</span><span>✦</span><span>✦</span></div>
-          <div class="victory-kicker">THE LAST ENEMY CAMP HAS FALLEN</div><h2>VICTORY</h2>
-          <div class="victory-rule"><i></i>✦<i></i></div>
-          <p class="victory-message">THE FREE LANDS OF COUTO MISTO</p>
-          <p class="victory-submessage">THE ENEMY RETREATS. YOUR HERITAGE ENDURES.</p>
-          <button id="victory-skip" class="gold-btn victory-continue">VIEW YOUR LEGACY</button>
+        <div id="victory-cinematic" class="victory-cinematic victory-video-stage">
+          <video id="victory-video" class="victory-video" autoplay muted playsinline preload="auto">
+            <source src="victory.mp4" type="video/mp4">
+          </video>
+          <div class="victory-video-shade"></div>
+          <div class="victory-video-controls">
+            <button id="victory-sound" class="trailer-btn" type="button">ENABLE SOUND</button>
+            <button id="victory-skip" class="trailer-btn trailer-skip" type="button">SKIP VIDEO ↗</button>
+          </div>
         </div>
         <div id="victory-results" class="menu-card victory-results hidden">
           <div class="eyebrow">THE FREE LANDS ARE SAFE</div><h2>YOUR LEGACY</h2>
@@ -96,6 +97,6 @@
     </section>
     <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD</span></footer>
   </main>
-  <script src="game.js?v=20261122-victory1"></script>
+  <script src="game.js?v=20261122-victoryvideo1"></script>
 </body>
 </html>
