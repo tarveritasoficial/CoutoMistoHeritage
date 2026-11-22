@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17251d">
   <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
   <title>Couto Misto Heritage</title>
-  <link rel="stylesheet" href="styles.css?v=20261122-2359">
+  <link rel="stylesheet" href="styles.css?v=20261122-obj1">
 </head>
 <body>
   <main id="game-shell">
@@ -61,7 +61,7 @@
       <div id="gameover" class="overlay hidden"><div class="menu-card compact"><div id="over-eyebrow" class="eyebrow">THE FORTRESS HAS FALLEN</div><h2 id="over-title">DEFEAT</h2><p id="final-stats">Your defence has ended.</p><button id="again-btn" class="gold-btn">DEFEND AGAIN</button><button id="over-menu-btn" class="ghost-btn">BACK TO MAIN MENU</button></div></div>
       <div id="orders" class="overlay hidden"><div class="menu-card compact orders-card"><div class="eyebrow">FIELD MANUAL</div><h2>YOUR ORDERS</h2><p><b>WASD / Arrows</b> — move<br><b>Mouse</b> — aim<br><b>Left click</b> — fire musket<br><b>Space</b> — sword strike<br><b>R</b> — reload<br><b>E</b> — use nearby cannon<br><b>Esc</b> — pause</p><p><b>The walls</b> — nothing enters until it breaks a gate, wall or bastion. Gates are the weakest point. Walls shield your men from musket fire, and masons repair them between waves.</p><p><b>Leaving the fort</b> — your gates open for you and your guard. Sword or musket the <b>enemy camps</b> until they fall; each one destroyed means smaller enemy waves. Destroy all four to win. Garrisons defend each camp.</p><p class="muted">Mobile: use the left joystick to move and the right side to aim and fire. The sword and reload buttons are at the bottom.</p><button id="close-orders" class="gold-btn">UNDERSTOOD</button></div></div>
       <div id="hud" class="hud hidden">
-        <div class="hud-left"><div class="meter"><span>HEALTH</span><div class="bar"><i id="health-bar"></i></div><b id="health-text">100</b></div><div class="meter"><span>FORTRESS</span><div class="bar fortress"><i id="fort-bar"></i></div><b id="fort-text">100%</b></div></div>
+        <div id="camp-objectives" class="camp-objectives"><div class="camp-objectives-heading"><span>ENEMY OBJECTIVES</span><b id="camp-objective-count">4 / 4 REMAINING</b></div><div class="camp-objective-list"><div class="camp-objective-row" id="camp-objective-0"><span class="camp-objective-dot france"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>FRENCH CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div><div class="camp-objective-row" id="camp-objective-1"><span class="camp-objective-dot spain"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>SPANISH CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div><div class="camp-objective-row" id="camp-objective-2"><span class="camp-objective-dot portugal"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>PORTUGUESE CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div><div class="camp-objective-row" id="camp-objective-3"><span class="camp-objective-dot england"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>ENGLISH CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div></div></div>\n        <div class="hud-left"><div class="meter"><span>HEALTH</span><div class="bar"><i id="health-bar"></i></div><b id="health-text">100</b></div><div class="meter"><span>FORTRESS</span><div class="bar fortress"><i id="fort-bar"></i></div><b id="fort-text">100%</b></div></div>
         <div class="hud-right"><div class="ammo"><span>MUSKET</span><b id="ammo">6 / 6</b><small id="reload-state">READY</small></div><div class="nation-legend"><span class="dot pt"></span> PT <span class="dot es"></span> ES <span class="dot fr"></span> FR <span class="dot en"></span> EN</div></div>
         <div id="wave-banner" class="wave-banner"></div>
       </div>
@@ -73,6 +73,6 @@
     </section>
     <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD</span></footer>
   </main>
-  <script src="game.js?v=20261122-2359"></script>
+  <script src="game.js?v=20261122-obj1"></script>
 </body>
 </html>
