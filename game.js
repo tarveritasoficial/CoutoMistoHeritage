@@ -4,7 +4,7 @@ const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d');
 const ui = {menu:$('menu'),loading:$('loading'),hud:$('hud'),pause:$('pause'),over:$('gameover'),orders:$('orders'),mobile:$('mobile-controls'),wave:$('wave'),score:$('score'),guards:$('guards'),health:$('health-bar'),healthText:$('health-text'),fort:$('fort-bar'),fortText:$('fort-text'),ammo:$('ammo'),reload:$('reload-state'),banner:$('wave-banner'),toast:$('toast')};
 const WORLD = {w:1800,h:1400,cx:900,cy:700};
-const FORT_WALL_RADIUS=350, DOOR_HALF_ANGLE=.085, DOOR_MAX_HP=105, WEAK_WALL_HALF_ANGLE=.105, WEAK_WALL_MAX_HP=420;
+const FORT_WALL_RADIUS=350, DOOR_HALF_ANGLE=.085, DOOR_MAX_HP=75, WEAK_WALL_HALF_ANGLE=.105, WEAK_WALL_MAX_HP=240;
 const FACTIONS = {
   couto:{name:'Couto Misto',a:'#244b36',b:'#d8b65f',dark:'#152e21'},
   portugal:{name:'Portugal',a:'#a83235',b:'#287447',dark:'#681f27'},
@@ -17,7 +17,8 @@ let dpr=1, vw=0,vh=0, camera={x:0,y:0}, state='menu', last=0, elapsed=0, wave=0,
 const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
 function wallCrossing(x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,fx=x1-WORLD.cx,fy=y1-WORLD.cy,A=dx*dx+dy*dy;if(A===0)return null;const B=2*(fx*dx+fy*dy),C=fx*fx+fy*fy-FORT_WALL_RADIUS*FORT_WALL_RADIUS,disc=B*B-4*A*C;if(disc<0)return null;const root=Math.sqrt(disc),t1=(-B-root)/(2*A),t2=(-B+root)/(2*A),t=t1>=0&&t1<=1?t1:t2>=0&&t2<=1?t2:null;if(t===null)return null;return {x:x1+dx*t,y:y1+dy*t};}
 function angleDifference(a,b){return Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)))}
-function wallBlocksBullet(b){const hit=wallCrossing(b.px,b.py,b.x,b.y);if(!hit)return false;const a=Math.atan2(hit.y-WORLD.cy,hit.x-WORLD.cx);const door=doors.find(item=>angleDifference(a,item.angle)<=DOOR_HALF_ANGLE);if(door)return !door.destroyed;const weak=weakWalls.find(item=>angleDifference(a,item.angle)<=WEAK_WALL_HALF_ANGLE);if(weak)return !weak.destroyed;return true;}
+function damageBarrier(item,damage){if(!item||item.destroyed)return;item.hp=Math.max(0,item.hp-damage);if(item.hp===0){item.destroyed=true;const isDoor=item.kind==='door';toast(isDoor?'A fortress door has been destroyed!':'A defensive wall section has collapsed!');banner(isDoor?'DOOR BREACHED · ENEMIES INCOMING':'WALL BREACHED · ENEMIES INCOMING')}}
+function wallBlocksBullet(b){const hit=wallCrossing(b.px,b.py,b.x,b.y);if(!hit)return false;const a=Math.atan2(hit.y-WORLD.cy,hit.x-WORLD.cx);const door=doors.find(item=>angleDifference(a,item.angle)<=DOOR_HALF_ANGLE);if(door){if(b.faction==='enemy')damageBarrier(door,b.damage);return true}const weak=weakWalls.find(item=>angleDifference(a,item.angle)<=WEAK_WALL_HALF_ANGLE);if(weak){if(b.faction==='enemy')damageBarrier(weak,b.damage);return true}return true;}
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
 window.addEventListener('resize',resize); resize();
 function worldPoint(sx,sy){return {x:sx+camera.x,y:sy+camera.y}}
@@ -96,7 +97,7 @@ for(const e of enemies){
   if(targets.length){let targetStructure=targets[0],best=Infinity;for(const item of targets){const scoreDistance=dist(e,item)*(item.kind==='door'?.72:1);if(scoreDistance<best){best=scoreDistance;targetStructure=item}}
    e.dir=angle(e,targetStructure);const structureDistance=dist(e,targetStructure),speed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='swordsman'?82:47;
    if(structureDistance>23){e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt}
-   else if(e.attack<=0){const damage=e.type==='elephant'?48:e.type==='cavalry'?27:e.type==='swordsman'?21:15;targetStructure.hp-=damage;e.attack=e.type==='elephant'?1.15:1.0;if(targetStructure.hp<=0){targetStructure.hp=0;targetStructure.destroyed=true;toast(targetStructure.kind==='door'?'A fortress door has been destroyed!':'A defensive wall section has collapsed!');banner(targetStructure.kind==='door'?'DOOR BREACHED · ENEMIES INCOMING':'WALL BREACHED · ENEMIES INCOMING')}}
+   else if(e.attack<=0){const damage=e.type==='elephant'?48:e.type==='cavalry'?27:e.type==='swordsman'?21:15;damageBarrier(targetStructure,damage);e.attack=e.type==='elephant'?1.15:1.0}
    continue;
   }
   // Once every weak point is destroyed, attackers can enter through the breaches.
