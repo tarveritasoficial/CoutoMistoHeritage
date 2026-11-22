@@ -92,8 +92,8 @@ function routeTo(from,to){
 }
 // ---------- enemy camps ----------
 const CAMP_SITES=[
- {faction:'france',name:'FRENCH CAMP',x:600,y:560},
- {faction:'spain',name:'SPANISH CAMP',x:2800,y:560},
+ {faction:'france',name:'FRENCH CAMP',x:600,y:850},
+ {faction:'spain',name:'SPANISH CAMP',x:2800,y:850},
  {faction:'portugal',name:'PORTUGUESE CAMP',x:600,y:2240},
  {faction:'england',name:'ENGLISH CAMP',x:2800,y:2240}
 ];
