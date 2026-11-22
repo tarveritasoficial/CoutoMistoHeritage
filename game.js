@@ -60,6 +60,8 @@ for(const e of enemies){
  e.attack-=dt;
  const target=nearestFriendly(e)||{x:WORLD.cx,y:WORLD.cy};
  const d=dist(e,target);e.dir=angle(e,target);
+ const coreDistance=Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy);
+ if(e.type!=='cannon'&&coreDistance<145&&e.attack<=0){fortress=Math.max(0,fortress-(e.type==='elephant'?4.5:e.type==='cavalry'?2.8:1.6));e.attack=1.1;continue;}
  if(e.type==='cannon'){
   if(e.attack<=0){shoot(e,e.dir,'enemy',30,285);e.attack=3.1}
   continue;
