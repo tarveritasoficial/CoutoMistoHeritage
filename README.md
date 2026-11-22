@@ -36,6 +36,6 @@ https://tarveritasoficial.github.io/CoutoMistoHeritage/
 
 ## Deploy
 
-Every push to `main` triggers the Pages workflow. In repository settings, ensure **Settings → Pages → Build and deployment → Source** is set to **GitHub Actions** if it is not already.
+Every push to `main` triggers the Pages workflow. In repository settings, set **Settings → Pages → Build and deployment → Source** to **Deploy from a branch**, choose **gh-pages** and **/(root)**, then save.
 
 Historical note: this is a fictionalized, historically inspired game setting, not a documentary reconstruction of a specific battle.
