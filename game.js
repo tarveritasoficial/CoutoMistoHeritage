@@ -415,21 +415,39 @@ function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save(
  // Layered meadow colours, grass tufts and small stones make the open field feel lived-in.
  ctx.fillStyle='#65784a';for(let i=0;i<260;i++){const x=(i*197)%WORLD.w,y=(i*317)%WORLD.h;if(!onScreen(x,y,50))continue;const rx=12+(i*17)%24,ry=7+(i*11)%12,rotation=((i*13)%60)/10;ctx.beginPath();ctx.ellipse(x,y,rx,ry,rotation,0,Math.PI*2);ctx.fill()}
  drawTerrainDetails();
- // Cart roads are routed THROUGH bridge centres so no track appears to cross open water.
+ // Cart roads meet the fortress exits and cross each river exactly along
+ // the fixed bridge deck axis. Bridge positions and bridge orientation are unchanged.
  const routes=[];
  for(const river of RIVER_DEFS)for(const b of river.bridges){
   let gate=GATE_ANGLES[0],gateScore=Infinity;
-  for(const a of GATE_ANGLES){const gx=WORLD.cx+Math.cos(a)*300,gy=WORLD.cy+Math.sin(a)*300,d=Math.hypot(gx-b.x,gy-b.y);if(d<gateScore){gateScore=d;gate=a}}
+  for(const angle of GATE_ANGLES){
+   const gx=WORLD.cx+Math.cos(angle)*430,gy=WORLD.cy+Math.sin(angle)*430;
+   const d=Math.hypot(gx-b.x,gy-b.y);
+   if(d<gateScore){gateScore=d;gate=angle}
+  }
   let camp=CAMP_SITES[0],campScore=Infinity;
   for(const c of CAMP_SITES){const d=Math.hypot(c.x-b.x,c.y-b.y);if(d<campScore){campScore=d;camp=c}}
-  const start={x:WORLD.cx+Math.cos(gate)*300,y:WORLD.cy+Math.sin(gate)*300};
+  const start={x:WORLD.cx+Math.cos(gate)*430,y:WORLD.cy+Math.sin(gate)*430};
   const finish={x:camp.x,y:camp.y};
-  const near=riverNearestPoint(RIVER_LINES[RIVER_DEFS.indexOf(river)],b.x,b.y),nx=-near.ty,ny=near.tx,sign=Math.sign((finish.x-start.x)*nx+(finish.y-start.y)*ny)||1;b.angle=Math.atan2(ny*sign,nx*sign)-Math.PI/2;
-  routes.push([start,{x:b.x,y:b.y},finish]);
+  // The bridge's deck runs along its local Y axis. Use that exact axis for
+  // both road approaches so the road cannot cut diagonally across the deck.
+  const axis={x:-Math.sin(b.angle||0),y:Math.cos(b.angle||0)};
+  const p1={x:b.x-axis.x*88,y:b.y-axis.y*88};
+  const p2={x:b.x+axis.x*88,y:b.y+axis.y*88};
+  const startFirst=Math.hypot(start.x-p1.x,start.y-p1.y)<=Math.hypot(start.x-p2.x,start.y-p2.y);
+  const entry=startFirst?p1:p2,exit=startFirst?p2:p1;
+  routes.push([start,entry,exit,finish]);
  }
- ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
- for(const route of routes){ctx.moveTo(route[0].x,route[0].y);ctx.lineTo(route[1].x,route[1].y);ctx.lineTo(route[2].x,route[2].y)}
- ctx.strokeStyle='#66563b';ctx.lineWidth=38;ctx.stroke();ctx.strokeStyle='#a99a70';ctx.lineWidth=28;ctx.stroke();ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2;ctx.setLineDash([10,15]);ctx.stroke();ctx.setLineDash([]);ctx.lineCap='butt';ctx.lineJoin='miter';
+ ctx.lineCap='round';ctx.lineJoin='round';
+ for(const route of routes){
+  ctx.beginPath();ctx.moveTo(route[0].x,route[0].y);
+  for(let i=1;i<route.length;i++)ctx.lineTo(route[i].x,route[i].y);
+  ctx.strokeStyle='#66563b';ctx.lineWidth=38;ctx.stroke();
+  ctx.strokeStyle='#a99a70';ctx.lineWidth=28;ctx.stroke();
+  ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2;ctx.setLineDash([10,15]);ctx.stroke();
+  ctx.setLineDash([]);
+ }
+ ctx.lineCap='butt';ctx.lineJoin='miter';
  drawRiversAndBridges();
  drawVillage(1000,820);drawVillage(2300,1700);drawVillage(1500,2060);
  for(const c of camps)drawEnemyCamp(c);
