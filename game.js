@@ -76,7 +76,62 @@ function pushOutOfWalls(u,rad,friendly=false){
 
 // true for points on or inside the wall line (the side the defenders live on)
 function behindWalls(p,m=14){for(const n of CURTAIN_DIRS)if((p.x-WORLD.cx)*n.x+(p.y-WORLD.cy)*n.y>FORT.apothem+m)return false;return true}
-function stepTo(u,p,len){const d=dist(u,p),a=angle(u,p),s=Math.min(len,d);u.x+=Math.cos(a)*s;u.y+=Math.sin(a)*s;return a}
+const RIVER_DEFS=[
+ {y:1010,bridges:[{x:1190,y:1014},{x:3210,y:1022}]},
+ {y:2590,bridges:[{x:1190,y:2587},{x:3210,y:2580}]}
+];
+function riverCurvePoints(r){
+ const out=[];
+ const curves=[
+  [[-80,r.y-25],[760,r.y+65],[1450,r.y-78],[2200,r.y-8]],
+  [[2200,r.y-8],[2950,r.y+62],[3660,r.y-68],[4480,r.y+18]]
+ ];
+ for(const c of curves)for(let i=0;i<=70;i++){
+  if(out.length&&i===0)continue;
+  const t=i/70,u=1-t;
+  out.push({x:u*u*u*c[0][0]+3*u*u*t*c[1][0]+3*u*t*t*c[2][0]+t*t*t*c[3][0],y:u*u*u*c[0][1]+3*u*u*t*c[1][1]+3*u*t*t*c[2][1]+t*t*t*c[3][1]});
+ }
+ return out;
+}
+const RIVER_LINES=RIVER_DEFS.map(r=>riverCurvePoints(r));
+function riverYAtX(points,x){
+ let best=points[0],bd=Infinity;
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i],dx=b.x-a.x,t=clamp((x-a.x)/(dx||1),0,1),px=a.x+dx*t,d=Math.abs(px-x);
+  if(d<bd){bd=d;best={x:px,y:a.y+(b.y-a.y)*t}}
+ }
+ return best.y;
+}
+function riverBridgePass(x,y,r){return r.bridges.some(b=>Math.abs(x-b.x)<55&&Math.abs(y-b.y)<84)}
+function riverBlocked(x,y){
+ for(let i=0;i<RIVER_DEFS.length;i++){
+  const r=RIVER_DEFS[i];if(riverBridgePass(x,y,r))continue;
+  const pts=RIVER_LINES[i];
+  for(let j=1;j<pts.length;j++){
+   const a=pts[j-1],b=pts[j],dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(l||1),0,1);
+   if(Math.hypot(x-(a.x+t*dx),y-(a.y+t*dy))<57)return true;
+  }
+ }
+ return false;
+}
+function riverRouteTarget(from,to){
+ for(let i=0;i<RIVER_DEFS.length;i++){
+  const r=RIVER_DEFS[i],ya=riverYAtX(RIVER_LINES[i],from.x),yb=riverYAtX(RIVER_LINES[i],to.x);
+  const sa=from.y-ya,sb=to.y-yb;
+  if(sa*sb<0&&!riverBridgePass(from.x,from.y,r)){
+   let bridge=r.bridges[0],best=Infinity;
+   for(const b of r.bridges){const score=dist(from,b)+dist(b,to);if(score<best){best=score;bridge=b}}
+   if(Math.abs(from.x-bridge.x)<58&&Math.abs(from.y-bridge.y)<88)return bridge;
+   return {x:bridge.x,y:bridge.y+(sa>0?78:-78)};
+  }
+ }
+ return to;
+}
+function moveToward(u,p,len){
+ const goal=riverRouteTarget(u,p),d=dist(u,goal),a=angle(u,goal),step=Math.min(len,d);
+ u.x+=Math.cos(a)*step;u.y+=Math.sin(a)*step;return a;
+}
+function stepTo(u,p,len){return moveToward(u,p,len)}
 // Friendly troops cross the wall line through a gate (or a breach). Returns the next point to walk to.
 function routeTo(from,to){
  const fi=behindWalls(from),ti=behindWalls(to);
@@ -231,13 +286,13 @@ function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if
 // Reserves hold their line: they only react to enemies inside the fort or pressing against its walls.
 function nearestThreat(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0||Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy)>440)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
 function update(dt){if(state!=='playing')return;if(victoryTimer>0){victoryTimer-=dt;if(victoryTimer<=0){victory();return}}elapsed+=dt;toastTimer=Math.max(0,toastTimer-dt);if(!toastTimer)ui.toast.classList.remove('show');bannerTimer=Math.max(0,bannerTimer-dt);if(!bannerTimer)ui.banner.classList.remove('show');
-const mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+mobileMove.x,my=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+mobileMove.y;const ml=Math.hypot(mx,my)||1;player.vx=mx/ml*190;player.vy=my/ml*190;player.x=clamp(player.x+player.vx*dt,30,WORLD.w-30);player.y=clamp(player.y+player.vy*dt,30,WORLD.h-30);pushOutOfWalls(player,12,true);
+const oldPlayerX=player.x,oldPlayerY=player.y;const mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+mobileMove.x,my=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+mobileMove.y;const ml=Math.hypot(mx,my)||1;player.vx=mx/ml*190;player.vy=my/ml*190;player.x=clamp(player.x+player.vx*dt,30,WORLD.w-30);player.y=clamp(player.y+player.vy*dt,30,WORLD.h-30);if(riverBlocked(player.x,player.y)){player.x=oldPlayerX;player.y=oldPlayerY}pushOutOfWalls(player,12,true);
 const aim=worldPoint(mouse.x,mouse.y);if(mouse.x||mouse.y)player.dir=angle(player,aim);if(touchFire){const target=nearestEnemy(player,1000);if(target)player.dir=angle(player,target);else{const camp=camps.filter(c=>!c.destroyed).sort((a,b)=>dist(player,a)-dist(player,b))[0];if(camp)player.dir=angle(player,camp)}}player.fire=Math.max(0,player.fire-dt);player.sword=Math.max(0,player.sword-dt);player.invuln=Math.max(0,player.invuln-dt);
 if(player.reload>0){player.reload-=dt;if(player.reload<=0){player.ammo=player.maxAmmo;toast('Musket reloaded')}}if((mouse.down||touchFire)&&player.fire<=0&&player.reload<=0){if(player.ammo>0){shoot(player,player.dir,'couto',40,760);player.ammo--;player.fire=.28}else reload()}
 if(cannonCooldown>0)cannonCooldown-=dt;
 if(!enemies.some(e=>!e.campGuard)){if(waveActive){waveActive=false;repairWalls()}spawnClock+=dt;if(spawnClock>waveGap)spawnWave()}else spawnClock=0;
 for(const w of walls)w.flash=Math.max(0,w.flash-dt);updateCamps(dt);
-for(const g of guards){if(g.hp<=0)continue;const target=nearestEnemy(g,215);if(target){g.dir=angle(g,target);g.attack-=dt;if(g.attack<=0){shoot(g,g.dir,'couto',eliteDamage(g),500);g.attack=rand(1.2,2.1)}}else{const dx=g.home.x-g.x,dy=g.home.y-g.y;g.x+=dx*dt*1.5;g.y+=dy*dt*1.5}}
+for(const g of guards){if(g.hp<=0)continue;const target=nearestEnemy(g,215);if(target){g.dir=angle(g,target);g.attack-=dt;if(g.attack<=0){shoot(g,g.dir,'couto',eliteDamage(g),500);g.attack=rand(1.2,2.1)}}else{const dx=g.home.x-g.x,dy=g.home.y-g.y;moveToward(g,g.home,Math.hypot(dx,dy)*Math.min(1,dt*1.5))}}
 for(let i=0;i<escorts.length;i++){
  const g=escorts[i];if(g.hp<=0)continue;
  const a=-Math.PI/2+i*Math.PI*2/Math.max(1,escorts.length),slot={x:player.x+Math.cos(a)*48,y:player.y+Math.sin(a)*48};
@@ -252,10 +307,10 @@ for(const d of defenders){
  const target=nearestThreat(d,430);
  if(target){
   const dd=dist(d,target);d.dir=angle(d,target);
-  if(dd>38){d.x+=Math.cos(d.dir)*86*dt;d.y+=Math.sin(d.dir)*86*dt}
+  if(dd>38)moveToward(d,target,86*dt)
   else{d.attack-=dt;if(d.attack<=0){target.hp-=30;d.attack=.72;if(target.hp<=0)kill(target)}}
  }else if(d.post){
-  const pd=dist(d,d.post);if(pd>4){const a=angle(d,d.post);d.dir=a;d.x+=Math.cos(a)*Math.min(86*dt,pd);d.y+=Math.sin(a)*Math.min(86*dt,pd)}
+  const pd=dist(d,d.post);if(pd>4)d.dir=moveToward(d,d.post,Math.min(86*dt,pd))
  }
 }
 for(const e of enemies){
@@ -275,19 +330,19 @@ for(const e of enemies){
  if(e.type!=='rifleman'&&!inside&&behindWalls(target)){siege(e,dt,rad);continue}
  if(e.type==='elephant'||e.type==='cavalry'){
   const speed=e.type==='elephant'?42:105;
-  if(d>34){e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt}
+  if(d>34)moveToward(e,target,speed*dt)
   else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=e.type==='elephant'?22:15;player.invuln=.45}}else if(target.hp!==undefined)target.hp-=e.type==='elephant'?32:20;e.attack=1.05}
   continue;
  }
  if(e.type==='swordsman'){
-  if(d>31){e.x+=Math.cos(e.dir)*82*dt;e.y+=Math.sin(e.dir)*82*dt}
+  if(d>31)moveToward(e,target,82*dt)
   else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=15;player.invuln=.48}}else if(target.hp!==undefined)target.hp-=19;e.attack=.78}
   continue;
  }
  // Musketeers keep a firing distance and shoot at the closest defender.
  // Pressed against the walls they fire from there: the walls give the defenders cover.
  const atWalls=!inside&&coreDistance<440&&d<450;
- if(d>190&&!atWalls){const sp=coreDistance>700?85:47;e.x+=Math.cos(e.dir)*sp*dt;e.y+=Math.sin(e.dir)*sp*dt}
+ if(d>190&&!atWalls){const sp=coreDistance>700?85:47;moveToward(e,target,sp*dt)}
  else if(e.attack<=0){shoot(e,e.dir,'enemy',13,390);e.attack=1.65}
 }
 // intact walls, gates and bastions are solid
@@ -295,7 +350,7 @@ for(const e of enemies)if(e.hp>0&&e.type!=='cannon')pushOutOfWalls(e,unitRadius(
 for(const g of escorts)if(g.hp>0)pushOutOfWalls(g,9,true);
 for(const d of defenders)if(d.hp>0)pushOutOfWalls(d,9,true);
 for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
-for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
+for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(riverBlocked(b.x,b.y)){b.life=0;continue}if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(enemies.some(e=>dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
 if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x-vw/2,0,WORLD.w-vw);camera.y=clamp(player.y-vh/2,0,WORLD.h-vh);updateHud()}
@@ -336,32 +391,44 @@ function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save(
  for(const a of GATE_ANGLES){ctx.moveTo(WORLD.cx+Math.cos(a)*300,WORLD.cy+Math.sin(a)*300);ctx.lineTo(WORLD.cx+Math.cos(a)*620,WORLD.cy+Math.sin(a)*620)}
  for(const s of CAMP_SITES){const ca=Math.atan2(s.y-WORLD.cy,s.x-WORLD.cx);let ga=GATE_ANGLES[0],bd=9;for(const a of GATE_ANGLES){const d=Math.abs(Math.atan2(Math.sin(a-ca),Math.cos(a-ca)));if(d<bd){bd=d;ga=a}}ctx.moveTo(WORLD.cx+Math.cos(ga)*620,WORLD.cy+Math.sin(ga)*620);ctx.lineTo(s.x,s.y)}
  ctx.strokeStyle='#66563b';ctx.lineWidth=38;ctx.stroke();ctx.strokeStyle='#a99a70';ctx.lineWidth=28;ctx.stroke();ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2;ctx.setLineDash([10,15]);ctx.stroke();ctx.setLineDash([]);ctx.lineCap='butt';
- drawVillage(1000,1000);drawVillage(2300,1700);drawVillage(1500,2060);
  drawRiversAndBridges();
+ drawVillage(1000,820);drawVillage(2300,1700);drawVillage(1500,2060);
  for(const c of camps)drawEnemyCamp(c);
  drawTrees();drawFortress();ctx.restore()}
+function drawRiverPath(r){
+ const y=r.y;ctx.beginPath();ctx.moveTo(-80,y-25);
+ ctx.bezierCurveTo(760,y+65,1450,y-78,2200,y-8);
+ ctx.bezierCurveTo(2950,y+62,3660,y-68,4480,y+18);
+}
 function drawRiversAndBridges(){
- // Two broad, winding rivers divide the outer countryside. The bridges sit on
- // the four main approach roads, so they are easy to spot from the battlefield.
- const rivers=[
-  {y:1010,phase:0,bridges:[{x:1190,y:1014},{x:3210,y:1022}]},
-  {y:2590,phase:1,bridges:[{x:1190,y:2587},{x:3210,y:2580}]}
- ];
- for(const river of rivers){
-  const y=river.y;
+ for(const r of RIVER_DEFS){
   ctx.lineCap='round';ctx.lineJoin='round';
-  ctx.beginPath();ctx.moveTo(-80,y-25);
-  ctx.bezierCurveTo(760,y+65,1450,y-78,2200,y-8);
-  ctx.bezierCurveTo(2950,y+62,3660,y-68,4480,y+18);
-  ctx.strokeStyle='rgba(37,49,38,.28)';ctx.lineWidth=126;ctx.stroke();
-  ctx.strokeStyle='#5a5943';ctx.lineWidth=112;ctx.stroke();
-  ctx.strokeStyle='#526f70';ctx.lineWidth=98;ctx.stroke();
-  ctx.strokeStyle='#66898a';ctx.lineWidth=78;ctx.stroke();
-  // broken highlights suggest moving water without animation or visual flicker
-  ctx.strokeStyle='rgba(190,211,184,.34)';ctx.lineWidth=2;ctx.setLineDash([24,34]);
-  ctx.beginPath();ctx.moveTo(0,y-23);ctx.bezierCurveTo(760,y+67,1450,y-76,2200,y-6);
-  ctx.bezierCurveTo(2950,y+64,3660,y-66,4400,y+20);ctx.stroke();ctx.setLineDash([]);
-  for(const b of river.bridges)drawWoodenBridge(b.x,b.y);
+  // Soft shadow, layered sandy banks and a deep blue-green water channel.
+  drawRiverPath(r);ctx.strokeStyle='rgba(20,28,23,.30)';ctx.lineWidth=142;ctx.stroke();
+  drawRiverPath(r);ctx.strokeStyle='#8b805d';ctx.lineWidth=126;ctx.stroke();
+  drawRiverPath(r);ctx.strokeStyle='#b2a078';ctx.lineWidth=112;ctx.stroke();
+  drawRiverPath(r);ctx.strokeStyle='#315d62';ctx.lineWidth=98;ctx.stroke();
+  drawRiverPath(r);ctx.strokeStyle='#477b80';ctx.lineWidth=82;ctx.stroke();
+  drawRiverPath(r);ctx.strokeStyle='rgba(25,65,72,.62)';ctx.lineWidth=54;ctx.stroke();
+  // Irregular ripples and glints make this read as water, not a road.
+  for(let k=0;k<34;k++){
+   const x=80+k*128+(k%3)*17,cy=riverYAtX(RIVER_LINES[RIVER_DEFS.indexOf(r)],x);
+   if(!onScreen(x,cy,90))continue;
+   ctx.strokeStyle=k%2?'rgba(190,220,207,.38)':'rgba(18,53,61,.32)';
+   ctx.lineWidth=k%3===0?3:1.5;ctx.beginPath();
+   ctx.moveTo(x-15,cy+Math.sin(k*1.7)*24);ctx.quadraticCurveTo(x,cy+Math.cos(k*1.2)*18,x+20,cy+Math.sin(k*.8)*22);ctx.stroke();
+  }
+  // Reeds and stones along the banks, kept clear of bridge decks.
+  for(let k=0;k<24;k++){
+   const x=110+k*183+(k%2)*31,cy=riverYAtX(RIVER_LINES[RIVER_DEFS.indexOf(r)],x);
+   if(!onScreen(x,cy,110)||r.bridges.some(b=>Math.abs(x-b.x)<95))continue;
+   for(const side of [-1,1]){
+    const rx=x+(k%3-1)*7,ry=cy+side*(61+(k%4)*3);
+    ctx.strokeStyle='#52633c';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(rx,ry+7);ctx.lineTo(rx-3,ry-5);ctx.moveTo(rx,ry+7);ctx.lineTo(rx+4,ry-7);ctx.stroke();
+    ctx.fillStyle='#b3a27b';ctx.beginPath();ctx.arc(rx+8,ry+2,2,0,Math.PI*2);ctx.fill();
+   }
+  }
+  for(const b of r.bridges)drawWoodenBridge(b.x,b.y);
  }
  ctx.lineCap='butt';ctx.lineJoin='miter';
 }
