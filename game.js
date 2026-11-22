@@ -77,9 +77,10 @@ function pushOutOfWalls(u,rad,friendly=false){
 // true for points on or inside the wall line (the side the defenders live on)
 function behindWalls(p,m=14){for(const n of CURTAIN_DIRS)if((p.x-WORLD.cx)*n.x+(p.y-WORLD.cy)*n.y>FORT.apothem+m)return false;return true}
 const RIVER_DEFS=[
- // Bridges sit exactly where the four cart tracks meet the rivers.
- {y:1010,bridges:[{x:1311,y:1010,angle:-2.639-Math.PI/2},{x:3089,y:1010,angle:-0.503-Math.PI/2}]},
- {y:2590,bridges:[{x:956,y:2590,angle:2.401-Math.PI/2},{x:3444,y:2590,angle:0.741-Math.PI/2}]}
+ // All bridges stay at their existing positions and run vertically across
+ // the mostly horizontal rivers. Their road approaches line up north-to-south.
+ {y:1010,bridges:[{x:1311,y:1010,angle:0},{x:3089,y:1010,angle:0}]},
+ {y:2590,bridges:[{x:956,y:2590,angle:0},{x:3444,y:2590,angle:0}]}
 ];
 function riverCurvePoints(r){
  const out=[];
