@@ -104,7 +104,15 @@ function riverYAtX(points,x){
  }
  return best.y;
 }
-function riverBridgePass(x,y,r){return r.bridges.some(b=>{const a=b.angle||0,dx=x-b.x,dy=y-b.y,lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);return Math.abs(lx)<30&&Math.abs(ly)<76})}
+function riverBridgeAt(x,y,r){
+ for(const b of r.bridges){
+  const a=b.angle||0,dx=x-b.x,dy=y-b.y;
+  const lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);
+  if(Math.abs(lx)<=42&&Math.abs(ly)<=94)return b;
+ }
+ return null;
+}
+function riverBridgePass(x,y,r){return !!riverBridgeAt(x,y,r)}
 function riverNearestPoint(points,x,y){
  let best=null,bestD=Infinity;
  for(let j=1;j<points.length;j++){
@@ -129,20 +137,29 @@ function riverBlocked(x,y){
 }
 function riverRouteTarget(from,to){
  for(let i=0;i<RIVER_DEFS.length;i++){
-  const r=RIVER_DEFS[i];
-  if(riverBridgePass(from.x,from.y,r))continue;
-  const a=riverNearestPoint(RIVER_LINES[i],from.x,from.y),b=riverNearestPoint(RIVER_LINES[i],to.x,to.y);
+  const r=RIVER_DEFS[i],a=riverNearestPoint(RIVER_LINES[i],from.x,from.y),b=riverNearestPoint(RIVER_LINES[i],to.x,to.y);
   if(!a||!b)continue;
   const crossA=a.tx*(from.y-a.y)-a.ty*(from.x-a.x),crossB=b.tx*(to.y-b.y)-b.ty*(to.x-b.x);
+  const currentBridge=riverBridgeAt(from.x,from.y,r);
+  // While on a bridge, keep the unit on the deck centreline and guide it
+  // all the way to the far bank before resuming its original destination.
+  if(currentBridge){
+   const nx=-Math.sin(currentBridge.angle||0),ny=Math.cos(currentBridge.angle||0);
+   const side=Math.sign(crossA)||-Math.sign(crossB)||1;
+   return {x:currentBridge.x-nx*side*106,y:currentBridge.y-ny*side*106};
+  }
   if(crossA*crossB>=0)continue;
   let bridge=r.bridges[0],best=Infinity;
-  for(const candidate of r.bridges){const score=dist(from,candidate)+dist(candidate,to);if(score<best){best=score;bridge=candidate}}
-  // The bridge's long axis is its local Y axis. Approach from the bank on the
-  // unit's current side, then walk onto the deck before continuing.
+  for(const candidate of r.bridges){
+   const score=dist(from,candidate)+dist(candidate,to);
+   if(score<best){best=score;bridge=candidate}
+  }
   const nx=-Math.sin(bridge.angle||0),ny=Math.cos(bridge.angle||0);
-  const side=Math.sign((from.x-bridge.x)*nx+(from.y-bridge.y)*ny)||1;
-  const approach={x:bridge.x+nx*side*88,y:bridge.y+ny*side*88};
-  return dist(from,approach)>9?approach:bridge;
+  const side=Math.sign(crossA)||1;
+  const entry={x:bridge.x+nx*side*106,y:bridge.y+ny*side*106};
+  // First line up with the entrance, then target the deck centre. Once the
+  // unit enters the wider collision corridor, the branch above guides it out.
+  return dist(from,entry)>18?entry:bridge;
  }
  return to;
 }
@@ -491,18 +508,18 @@ function drawRiversAndBridges(){
 }
 function drawWoodenBridge(x,y,rotation=0){
  ctx.save();ctx.translate(x,y);ctx.rotate(rotation);
- // Narrow stone abutments and a compact timber deck, aligned with the road.
- ctx.fillStyle='rgba(26,31,24,.38)';ctx.fillRect(-39,-70,78,140);
- ctx.fillStyle='#706b58';ctx.fillRect(-36,-67,8,134);ctx.fillRect(28,-67,8,134);
- ctx.fillStyle='#60472e';ctx.fillRect(-29,-67,58,134);
- ctx.fillStyle='#9a7447';ctx.fillRect(-25,-67,50,134);
- for(let yy=-62;yy<=62;yy+=13){
-  ctx.fillStyle=(yy/13)%2?'#a98553':'#8d6b42';ctx.fillRect(-24,yy,48,10);
-  ctx.strokeStyle='rgba(54,39,25,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-23,yy+10);ctx.lineTo(23,yy+10);ctx.stroke();
+ // Slightly wider and longer timber deck; position and orientation are unchanged.
+ ctx.fillStyle='rgba(26,31,24,.38)';ctx.fillRect(-47,-88,94,176);
+ ctx.fillStyle='#706b58';ctx.fillRect(-44,-85,9,170);ctx.fillRect(35,-85,9,170);
+ ctx.fillStyle='#60472e';ctx.fillRect(-35,-85,70,170);
+ ctx.fillStyle='#9a7447';ctx.fillRect(-31,-85,62,170);
+ for(let yy=-80;yy<=80;yy+=13){
+  ctx.fillStyle=(yy/13)%2?'#a98553':'#8d6b42';ctx.fillRect(-30,yy,60,10);
+  ctx.strokeStyle='rgba(54,39,25,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-29,yy+10);ctx.lineTo(29,yy+10);ctx.stroke();
  }
- ctx.strokeStyle='#4e3927';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-29,-58);ctx.lineTo(-29,58);ctx.moveTo(29,-58);ctx.lineTo(29,58);ctx.stroke();
- ctx.strokeStyle='#c09a62';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-29,-48);ctx.lineTo(-29,48);ctx.moveTo(29,-48);ctx.lineTo(29,48);ctx.stroke();
- for(const yy of [-58,-20,20,58]){ctx.fillStyle='#62472d';ctx.fillRect(-32,yy-3,7,8);ctx.fillRect(25,yy-3,7,8)}
+ ctx.strokeStyle='#4e3927';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-35,-76);ctx.lineTo(-35,76);ctx.moveTo(35,-76);ctx.lineTo(35,76);ctx.stroke();
+ ctx.strokeStyle='#c09a62';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-35,-66);ctx.lineTo(-35,66);ctx.moveTo(35,-66);ctx.lineTo(35,66);ctx.stroke();
+ for(const yy of [-76,-26,26,76]){ctx.fillStyle='#62472d';ctx.fillRect(-38,yy-3,8,8);ctx.fillRect(30,yy-3,8,8)}
  ctx.restore();
 }
 function drawEnemyCamp(c){
