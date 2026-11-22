@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17251d">
   <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
   <title>Couto Misto Heritage</title>
-  <link rel="stylesheet" href="styles.css?v=20261122-obj1">
+  <link rel="stylesheet" href="styles.css?v=20261122-victory1">
 </head>
 <body>
   <main id="game-shell">
@@ -58,6 +58,29 @@
         </div>
       </div></div>
       <div id="pause" class="overlay hidden"><div class="menu-card compact"><div class="eyebrow">FIELD ORDERS</div><h2>PAUSED</h2><p>The battle waits for your command.</p><button id="resume-btn" class="gold-btn">RESUME BATTLE</button><button id="restart-btn" class="ghost-btn">RESTART DEFENCE</button><button id="menu-btn" class="ghost-btn">BACK TO MAIN MENU</button></div></div>
+      <div id="victory-screen" class="overlay victory-screen hidden">
+        <div id="victory-cinematic" class="victory-cinematic">
+          <div class="victory-sky"></div><div class="victory-rays"></div>
+          <div class="victory-star">✦</div><div class="victory-flags"><span>✦</span><span>✦</span><span>✦</span></div>
+          <div class="victory-kicker">THE LAST ENEMY CAMP HAS FALLEN</div><h2>VICTORY</h2>
+          <div class="victory-rule"><i></i>✦<i></i></div>
+          <p class="victory-message">THE FREE LANDS OF COUTO MISTO</p>
+          <p class="victory-submessage">THE ENEMY RETREATS. YOUR HERITAGE ENDURES.</p>
+          <button id="victory-skip" class="gold-btn victory-continue">VIEW YOUR LEGACY</button>
+        </div>
+        <div id="victory-results" class="menu-card victory-results hidden">
+          <div class="eyebrow">THE FREE LANDS ARE SAFE</div><h2>YOUR LEGACY</h2>
+          <p class="victory-result-copy">The four enemy camps have been defeated. Couto Misto stands free.</p>
+          <div class="victory-stat-grid">
+            <div><b id="victory-score">0</b><span>FINAL SCORE</span></div>
+            <div><b id="victory-waves">0</b><span>WAVES SURVIVED</span></div>
+            <div><b id="victory-soldiers">0/0</b><span>DEFENDERS ALIVE</span></div>
+            <div><b id="victory-time">0:00</b><span>BATTLE DURATION</span></div>
+          </div>
+          <div class="victory-seal">✦ COUTO MISTO · FREE FOREVER ✦</div>
+          <button id="victory-again" class="gold-btn">DEFEND AGAIN</button><button id="victory-menu" class="ghost-btn">BACK TO MAIN MENU</button>
+        </div>
+      </div>
       <div id="gameover" class="overlay hidden"><div class="menu-card compact"><div id="over-eyebrow" class="eyebrow">THE FORTRESS HAS FALLEN</div><h2 id="over-title">DEFEAT</h2><p id="final-stats">Your defence has ended.</p><button id="again-btn" class="gold-btn">DEFEND AGAIN</button><button id="over-menu-btn" class="ghost-btn">BACK TO MAIN MENU</button></div></div>
       <div id="orders" class="overlay hidden"><div class="menu-card compact orders-card"><div class="eyebrow">FIELD MANUAL</div><h2>YOUR ORDERS</h2><p><b>WASD / Arrows</b> — move<br><b>Mouse</b> — aim<br><b>Left click</b> — fire musket<br><b>Space</b> — sword strike<br><b>R</b> — reload<br><b>E</b> — use nearby cannon<br><b>Esc</b> — pause</p><p><b>The walls</b> — nothing enters until it breaks a gate, wall or bastion. Gates are the weakest point. Walls shield your men from musket fire, and masons repair them between waves.</p><p><b>Leaving the fort</b> — your gates open for you and your guard. Sword or musket the <b>enemy camps</b> until they fall; each one destroyed means smaller enemy waves. Destroy all four to win. Garrisons defend each camp.</p><p class="muted">Mobile: use the left joystick to move and the right side to aim and fire. The sword and reload buttons are at the bottom.</p><button id="close-orders" class="gold-btn">UNDERSTOOD</button></div></div>
       <div id="hud" class="hud hidden">
@@ -73,6 +96,6 @@
     </section>
     <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD</span></footer>
   </main>
-  <script src="game.js?v=20261122-obj1"></script>
+  <script src="game.js?v=20261122-victory1"></script>
 </body>
 </html>
