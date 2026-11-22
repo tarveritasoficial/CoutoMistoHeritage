@@ -677,7 +677,7 @@ function drawMinimap(){
  pathPoly(BASTION_ANGLES.map(a=>({x:X(WORLD.cx+Math.cos(a)*FORT.bastionR),y:Y(WORLD.cy+Math.sin(a)*FORT.bastionR)})));ctx.fillStyle='#a9a080';ctx.fill();
  for(const c of camps){ctx.fillStyle=c.destroyed?'#59554b':(FACTIONS[c.faction].a);ctx.fillRect(X(c.x)-3.5,Y(c.y)-3.5,7,7);ctx.strokeStyle=c.destroyed?'#2a2620':'#101a15';ctx.lineWidth=1;ctx.strokeRect(X(c.x)-3.5,Y(c.y)-3.5,7,7);if(c.destroyed){ctx.strokeStyle='#d9d2bd';ctx.beginPath();ctx.moveTo(X(c.x)-3,Y(c.y)-3);ctx.lineTo(X(c.x)+3,Y(c.y)+3);ctx.moveTo(X(c.x)+3,Y(c.y)-3);ctx.lineTo(X(c.x)-3,Y(c.y)+3);ctx.stroke()}}
  ctx.fillStyle='#e2574a';for(const e of enemies){if(e.hp>0&&!e.campGuard)ctx.fillRect(X(e.x)-1,Y(e.y)-1,2.2,2.2)}
- ctx.strokeStyle='rgba(240,225,170,.75)';ctx.lineWidth=1;ctx.strokeRect(X(camera.x),Y(camera.y),vw*sx,vh*sy);
+ ctx.strokeStyle='rgba(240,225,170,.75)';ctx.lineWidth=1;ctx.strokeRect(X(camera.x-vw/(2*zoom)),Y(camera.y-vh/(2*zoom)),(vw/zoom)*sx,(vh/zoom)*sy);
  ctx.fillStyle='#f6df9a';ctx.beginPath();ctx.arc(X(player.x),Y(player.y),2.8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#101a15';ctx.stroke();
  ctx.restore();
 }
