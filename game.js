@@ -155,10 +155,13 @@ canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){mouse.down
 window.addEventListener('pointerup',()=>{mouse.down=false;touchFire=false});
 window.addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Space'&&state==='playing')sword();if(e.code==='KeyR'&&state==='playing')reload();if(e.code==='KeyE'&&state==='playing'){if(cannonCooldown<=0){shoot(player,player.dir,'couto',88,390);cannonCooldown=4.5;toast('Bastion cannon fired · reloading')}else toast('Cannon reloading…')}});window.addEventListener('keyup',e=>keys[e.code]=false);
 function updateDeployment(){
- const ids=['wall-count','guard-count','active-count'],total=ids.reduce((sum,id)=>sum+clamp(Math.floor(Number($(id).value)||0),0,40),0);
+ const ids=['wall-count','guard-count','active-count'];
+ const values=ids.map(id=>Math.floor(Number($(id).value)||0));
+ const invalid=values.some(value=>value<0||value>40);
+ const total=values.reduce((sum,value)=>sum+value,0);
  $('deployment-total').textContent=total;
- $('deployment-error').textContent=total===0?'Choose at least one soldier.':total>40?'Maximum deployment is 40 soldiers.':'';
- $('start-btn').disabled=total===0||total>40;
+ $('deployment-error').textContent=invalid?'Each role must be between 0 and 40 soldiers.':total===0?'Choose at least one soldier.':total>40?'Maximum deployment is 40 soldiers.':'';
+ $('start-btn').disabled=invalid||total===0||total>40;
 }
 ['wall-count','guard-count','active-count'].forEach(id=>$(id).addEventListener('input',updateDeployment));
 updateDeployment();
