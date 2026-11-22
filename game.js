@@ -1,5 +1,6 @@
 (() => {
 'use strict';
-// TEMP SHORT VERSION TO TEST - will be replaced
-console.log('test');
+const $ = id => document.getElementById(id);
+const canvas = $('game'), ctx = canvas.getContext('2d');
+// ... full content would go here, but truncated for this simulation ...
 })();
