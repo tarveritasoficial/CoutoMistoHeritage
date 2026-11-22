@@ -1,0 +1,103 @@
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const canvas = $('game'), ctx = canvas.getContext('2d');
+const ui = {menu:$('menu'),loading:$('loading'),hud:$('hud'),pause:$('pause'),over:$('gameover'),orders:$('orders'),mobile:$('mobile-controls'),wave:$('wave'),score:$('score'),guards:$('guards'),health:$('health-bar'),healthText:$('health-text'),fort:$('fort-bar'),fortText:$('fort-text'),ammo:$('ammo'),reload:$('reload-state'),banner:$('wave-banner'),toast:$('toast')};
+const WORLD = {w:1800,h:1400,cx:900,cy:700};
+const FACTIONS = {
+  couto:{name:'Couto Misto',a:'#244b36',b:'#d8b65f',dark:'#152e21'},
+  portugal:{name:'Portugal',a:'#a83235',b:'#287447',dark:'#681f27'},
+  spain:{name:'Spain',a:'#e3c23e',b:'#b8322d',dark:'#772521'},
+  france:{name:'France',a:'#315f9b',b:'#e7e8e3',dark:'#1c3557'},
+  england:{name:'England',a:'#b63c3c',b:'#eee9dc',dark:'#702323'}
+};
+const keys = Object.create(null), mouse = {x:0,y:0,down:false};
+let dpr=1, vw=0,vh=0, camera={x:0,y:0}, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], villagers=[], player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0;
+const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
+function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+window.addEventListener('resize',resize); resize();
+function worldPoint(sx,sy){return {x:sx+camera.x,y:sy+camera.y}}
+function screenPoint(p){return {x:p.x-camera.x,y:p.y-camera.y}}
+function toast(t){ui.toast.textContent=t;ui.toast.classList.add('show');toastTimer=2.1}
+function banner(t){ui.banner.textContent=t;ui.banner.classList.add('show');bannerTimer=2.8}
+function polygonPoints(cx,cy,r,n,rot=-Math.PI/2,inner){const pts=[];for(let i=0;i<n;i++){const a=rot+i*Math.PI*2/n;pts.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r})}return pts}
+function starPoints(cx,cy,outer,inner,n=5){const pts=[];for(let i=0;i<n*2;i++){const a=-Math.PI/2+i*Math.PI/n,r=i%2===0?outer:inner;pts.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r})}return pts}
+function pathPoly(pts){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath()}
+const fortOuter=starPoints(WORLD.cx,WORLD.cy,390,315), fortInner=starPoints(WORLD.cx,WORLD.cy,320,250);
+const guardSpots=Array.from({length:8},(_,i)=>{const a=-Math.PI/2+i*Math.PI/4;return {x:WORLD.cx+Math.cos(a)*326,y:WORLD.cy+Math.sin(a)*326,angle:a}});
+function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){return {id:++idCounter,x,y,vx:0,vy:0,dir:0,hp:type==='elephant'?210:elite?145:type==='cavalry'?85:55,max:type==='elephant'?210:elite?145:type==='cavalry'?85:55,faction,type,friendly,elite,attack:rand(.2,1),reload:rand(.2,1.5),flash:0,dead:false,charge:0}}
+function reset(){wave=0;score=0;fortress=100;elapsed=0;spawnClock=0;waveGap=2;enemies=[];bullets=[];particles=[];villagers=[];idCounter=0;guards=guardSpots.map((p,i)=>{const g=makeSoldier(p.x,p.y,'couto','rifleman',true,true);g.slot=i;g.home={x:p.x,y:p.y};g.dir=p.angle+Math.PI;return g});player={x:WORLD.cx,y:WORLD.cy+65,vx:0,vy:0,dir:-Math.PI/2,hp:100,max:100,ammo:6,maxAmmo:6,reload:0,fire:0,sword:0,invuln:0};for(let i=0;i<15;i++)villagers.push({x:WORLD.cx+rand(-205,205),y:WORLD.cy+rand(-165,165),dir:rand(0,6.28),speed:rand(8,17),panic:0});ui.wave.textContent='0';ui.score.textContent='0';ui.guards.textContent='8/8';updateHud()}
+function updateHud(){ui.health.style.width=(player.hp/player.max*100)+'%';ui.healthText.textContent=Math.ceil(player.hp);ui.fort.style.width=fortress+'%';ui.fortText.textContent=Math.ceil(fortress)+'%';ui.ammo.textContent=player.ammo+' / '+player.maxAmmo;ui.reload.textContent=player.reload>0?'RELOADING':'READY';ui.guards.textContent=guards.filter(g=>g.hp>0).length+'/8';ui.wave.textContent=wave;ui.score.textContent=score}
+function start(){reset();state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');ui.mobile.classList.remove('hidden');banner('DEFEND THE STAR FORTRESS');last=performance.now()}
+function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove('hidden')}else if(state==='paused'){state='playing';ui.pause.classList.add('hidden');last=performance.now()}}
+function gameOver(){state='over';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent='Waves held: '+wave+' · Score: '+score+' · Royal guards remaining: '+guards.filter(g=>g.hp>0).length+'/8'}
+function reload(){if(player.reload<=0&&player.ammo<player.maxAmmo){player.reload=1.55;toast('Reloading musket…')}}
+function shoot(from,dir,faction,damage=24,speed=520){bullets.push({x:from.x+Math.cos(dir)*17,y:from.y+Math.sin(dir)*17,vx:Math.cos(dir)*speed,vy:Math.sin(dir)*speed,life:1.5,faction,damage,r:3});for(let i=0;i<4;i++)particles.push({x:from.x+Math.cos(dir)*12,y:from.y+Math.sin(dir)*12,vx:rand(-35,35)+Math.cos(dir)*rand(15,55),vy:rand(-35,35)+Math.sin(dir)*rand(15,55),life:rand(.12,.28),max:.28,color:'#f4d58c',r:rand(1,3)})}
+function sword(){if(player.sword>0)return;player.sword=.42;let hit=0;for(const e of enemies){if(e.hp>0&&dist(player,e)<52&&Math.abs(angle(player,e)-player.dir)<1.2){e.hp-=48;hit++ ;if(e.hp<=0)kill(e)}}if(hit)toast('Sword strike!')}
+function spawnWave(){wave++;ui.wave.textContent=wave;banner('ENEMY WAVE '+wave);const count=5+wave*3;for(let i=0;i<count;i++){const side=i%4,edge=side===0?{x:rand(90,1710),y:65}:side===1?{x:1710,y:rand(90,1310)}:side===2?{x:rand(90,1710),y:1335}:{x:90,y:rand(90,1310)};const factions=['portugal','spain','france','england'];const faction=factions[(Math.floor((wave-1)/2)+Math.floor(i/Math.max(1,count/4)))%4];let type='rifleman';const roll=Math.random();if(wave>=3&&roll<.12)type='cavalry';else if(wave>=5&&roll<.19)type='swordsman';else if(wave>=7&&roll<.055)type='elephant';const e=makeSoldier(edge.x,edge.y,faction,type,false);e.hp+=Math.floor(wave*.6);e.max=e.hp;enemies.push(e)}if(wave>=4&&wave%2===0){const e=makeSoldier(rand(150,1650),rand(100,1300),'spain','cannon',false);e.hp=130;e.max=130;enemies.push(e)}spawnClock=0}
+function kill(e){if(e.dead)return;e.dead=true;score+=e.type==='elephant'?120:e.type==='cavalry'?55:25;for(let i=0;i<9;i++)particles.push({x:e.x,y:e.y,vx:rand(-80,80),vy:rand(-80,80),life:rand(.25,.65),max:.65,color:i%2?'#b8a27a':'#6e3d32',r:rand(2,5)})}
+function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
+function update(dt){if(state!=='playing')return;elapsed+=dt;toastTimer=Math.max(0,toastTimer-dt);if(!toastTimer)ui.toast.classList.remove('show');bannerTimer=Math.max(0,bannerTimer-dt);if(!bannerTimer)ui.banner.classList.remove('show');
+const mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+mobileMove.x,my=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+mobileMove.y;const ml=Math.hypot(mx,my)||1;player.vx=mx/ml*190;player.vy=my/ml*190;player.x=clamp(player.x+player.vx*dt,WORLD.cx-225,WORLD.cx+225);player.y=clamp(player.y+player.vy*dt,WORLD.cy-185,WORLD.cy+185);
+const aim=worldPoint(mouse.x,mouse.y);if(mouse.x||mouse.y)player.dir=angle(player,aim);player.fire=Math.max(0,player.fire-dt);player.sword=Math.max(0,player.sword-dt);player.invuln=Math.max(0,player.invuln-dt);
+if(player.reload>0){player.reload-=dt;if(player.reload<=0){player.ammo=player.maxAmmo;toast('Musket reloaded')}}if((mouse.down||touchFire)&&player.fire<=0&&player.reload<=0){if(player.ammo>0){shoot(player,player.dir,'couto',30,650);player.ammo--;player.fire=.32}else reload()}
+if(cannonCooldown>0)cannonCooldown-=dt;
+if(enemies.length===0){spawnClock+=dt;if(spawnClock>waveGap)spawnWave()}else spawnClock=0;
+for(const g of guards){if(g.hp<=0)continue;const target=nearestEnemy(g,510);if(target){g.dir=angle(g,target);g.attack-=dt;if(g.attack<=0){shoot(g,g.dir,'couto',eliteDamage(g),500);g.attack=rand(1.2,2.1)}}else{const dx=g.home.x-g.x,dy=g.home.y-g.y;g.x+=dx*dt*1.5;g.y+=dy*dt*1.5}}
+for(const e of enemies){if(e.hp<=0)continue;e.attack-=dt;const target=nearestFriendly(e);if(e.type==='cannon'){if(e.attack<=0){const t=target||{x:WORLD.cx,y:WORLD.cy};shoot(e,angle(e,t),'enemy',34,260);e.attack=3.4}continue}
+if(e.type==='elephant'||e.type==='cavalry'){const t=target||{x:WORLD.cx,y:WORLD.cy};const d=dist(e,t);e.dir=angle(e,t);const speed=e.type==='elephant'?42:100;e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt;if(d<38&&e.attack<=0){if(target===player){player.hp-=e.type==='elephant'?23:16;player.invuln=.4}else if(target&&target.hp!==undefined)target.hp-=e.type==='elephant'?30:18;e.attack=1.1}continue}
+const dfort=Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy);if(dfort>295){e.dir=angle(e,{x:WORLD.cx,y:WORLD.cy});const speed=e.type==='swordsman'?62:48;e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt}else{if(e.attack<=0){if(target&&target!==player&&target.hp!==undefined)target.hp-=10;else fortress=Math.max(0,fortress-1.3);if(target===player){player.hp-=7;player.invuln=.35}e.attack=1.15}if(target&&dist(e,target)<250&&e.type==='rifleman'&&e.attack<=0){shoot(e,angle(e,target),'enemy',12,370)}}}
+for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
+for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of guards){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}}else{for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
+for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
+for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(enemies.some(e=>dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
+if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x-vw/2,0,WORLD.w-vw);camera.y=clamp(player.y-vh/2,0,WORLD.h-vh);updateHud()}
+function eliteDamage(){return 24}
+function nearestFriendly(e){let best=player,bd=dist(e,player);for(const g of guards){if(g.hp>0&&dist(e,g)<bd){best=g;bd=dist(e,g)}}return best}
+function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,WORLD.w,WORLD.h);ctx.save();ctx.translate(-camera.x,-camera.y);
+ctx.fillStyle='#65784a';for(let i=0;i<80;i++){const x=(i*197)%WORLD.w,y=(i*317)%WORLD.h;ctx.beginPath();ctx.ellipse(x,y,rand(12,35),rand(7,18),rand(0,6),0,Math.PI*2);ctx.fill()}
+ctx.strokeStyle='#a99a70';ctx.lineWidth=34;ctx.beginPath();ctx.moveTo(900,0);ctx.lineTo(900,275);ctx.lineTo(900,1125);ctx.lineTo(900,1400);ctx.moveTo(0,700);ctx.lineTo(500,700);ctx.lineTo(1300,700);ctx.lineTo(1800,700);ctx.stroke();ctx.strokeStyle='#d1c092';ctx.lineWidth=2;ctx.setLineDash([12,12]);ctx.stroke();ctx.setLineDash([]);
+drawVillage(330,360);drawVillage(1450,1060);drawCamp(300,1080,'portugal');drawCamp(1490,300,'spain');drawTrees();drawFortress();ctx.restore()}
+function drawVillage(x,y){ctx.fillStyle='#a98a58';for(let i=0;i<5;i++){const xx=x+(i%3)*45,yy=y+Math.floor(i/3)*42;ctx.fillRect(xx,yy,30,24);ctx.fillStyle='#704d35';ctx.beginPath();ctx.moveTo(xx-4,yy);ctx.lineTo(xx+15,yy-15);ctx.lineTo(xx+34,yy);ctx.fill();ctx.fillStyle='#a98a58'}ctx.fillStyle='#e6d4a7';ctx.font='12px Cinzel';ctx.fillText('VILLAGE',x,y+100)}
+function drawCamp(x,y,f){ctx.fillStyle='#d5c69b';for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(x+i*32,y);ctx.lineTo(x+14+i*32,y-25);ctx.lineTo(x+28+i*32,y);ctx.fill()}ctx.fillStyle=FACTIONS[f].a;ctx.fillRect(x+50,y-42,3,42);ctx.fillStyle=FACTIONS[f].b;ctx.fillRect(x+53,y-40,22,12)}
+function drawTrees(){for(let i=0;i<65;i++){const x=(i*271+85)%WORLD.w,y=(i*193+40)%WORLD.h;if(Math.hypot(x-WORLD.cx,y-WORLD.cy)>445){ctx.fillStyle='#344f32';ctx.beginPath();ctx.arc(x,y,rand(10,20),0,Math.PI*2);ctx.fill();ctx.fillStyle='#6c8150';ctx.beginPath();ctx.arc(x-4,y-5,rand(5,10),0,Math.PI*2);ctx.fill()}}}
+function drawFortress(){const cx=WORLD.cx,cy=WORLD.cy;
+pathPoly(fortOuter);ctx.fillStyle='#59604f';ctx.fill();ctx.lineWidth=22;ctx.strokeStyle='#b9ad8e';ctx.stroke();
+pathPoly(fortInner);ctx.fillStyle='#a9a080';ctx.fill();ctx.lineWidth=15;ctx.strokeStyle='#d1c5a2';ctx.stroke();
+pathPoly(starPoints(cx,cy,245,185));ctx.fillStyle='#a5a080';ctx.fill();ctx.strokeStyle='#c9bd9b';ctx.lineWidth=9;ctx.stroke();
+ctx.fillStyle='#68764d';ctx.beginPath();ctx.arc(cx,cy,190,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='#9a8d68';ctx.fillRect(cx-48,cy-30,96,60);ctx.fillStyle='#5b4a35';ctx.fillRect(cx-18,cy-30,36,60);ctx.fillStyle='#c4b58d';ctx.fillRect(cx-80,cy+78,160,8);ctx.fillRect(cx-80,cy-86,160,8);
+for(let i=0;i<5;i++){const a=-Math.PI/2+i*Math.PI*2/5,x=cx+Math.cos(a)*365,y=cy+Math.sin(a)*365;ctx.fillStyle='#777b67';ctx.beginPath();ctx.arc(x,y,36,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d0c4a2';ctx.lineWidth=7;ctx.stroke();drawCannon(x,y,a+Math.PI)}
+for(let i=0;i<8;i++){const p=guardSpots[i];ctx.fillStyle='#d4c69e';ctx.beginPath();ctx.arc(p.x,p.y,16,0,Math.PI*2);ctx.fill()}
+ctx.fillStyle='#e1d2a9';ctx.font='bold 16px Cinzel';ctx.textAlign='center';ctx.fillText('COUTO MISTO',cx,cy-135);ctx.font='9px Cinzel';ctx.fillText('THE STAR FORTRESS',cx,cy-118);ctx.textAlign='left';
+for(let i=0;i<5;i++){const a=-Math.PI/2+i*Math.PI*2/5;ctx.save();ctx.translate(cx+Math.cos(a)*370,cy+Math.sin(a)*370);ctx.rotate(a+Math.PI/2);ctx.fillStyle='#244b36';ctx.fillRect(-2,-50,4,50);ctx.fillStyle='#d8b65f';ctx.fillRect(2,-48,27,15);ctx.restore()}}
+function drawCannon(x,y,a){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.fillStyle='#493d2b';ctx.fillRect(-17,-7,34,14);ctx.fillStyle='#252a25';ctx.fillRect(-22,-4,44,8);ctx.fillStyle='#96784a';ctx.beginPath();ctx.arc(-13,12,8,0,Math.PI*2);ctx.arc(13,12,8,0,Math.PI*2);ctx.fill();ctx.restore()}
+function drawCharacter(c,isPlayer=false){const s=screenPoint(c);if(s.x<-45||s.y<-45||s.x>vw+45||s.y>vh+45)return;ctx.save();ctx.translate(s.x,s.y);ctx.rotate(c.dir||0);const f=FACTIONS[c.faction]||FACTIONS.couto;
+if(c.type==='elephant'){ctx.fillStyle='#756e5c';ctx.beginPath();ctx.ellipse(0,0,29,21,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#8c8068';ctx.beginPath();ctx.arc(24,-4,13,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#9b8e75';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(32,0);ctx.quadraticCurveTo(43,12,32,22);ctx.stroke();ctx.fillStyle=f.a;ctx.fillRect(-12,-20,27,12);ctx.fillStyle=f.b;ctx.fillRect(-8,-18,18,4);ctx.fillStyle='#d8c79c';ctx.fillRect(-9,-30,18,12);ctx.restore();return}
+if(c.type==='cavalry'){ctx.fillStyle='#5e4934';ctx.beginPath();ctx.ellipse(-5,5,21,10,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#6e543a';ctx.beginPath();ctx.arc(13,0,8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#493b2b';ctx.lineWidth=3;for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(i*10,10);ctx.lineTo(i*11+4,22);ctx.stroke()}ctx.fillStyle=f.a;ctx.beginPath();ctx.arc(0,-10,8,0,Math.PI*2);ctx.fill();ctx.fillStyle=f.b;ctx.fillRect(-5,-14,10,5);ctx.restore();return}
+ctx.fillStyle='#18231b';ctx.beginPath();ctx.ellipse(0,3,9,13,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=f.a;ctx.beginPath();ctx.ellipse(0,0,8,11,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=f.b;ctx.fillRect(-6,-4,12,4);ctx.fillStyle='#d8b990';ctx.beginPath();ctx.arc(0,-11,6,0,Math.PI*2);ctx.fill();ctx.fillStyle=f.dark;ctx.fillRect(-7,-17,14,4);ctx.fillStyle=f.b;ctx.fillRect(-5,-19,10,2);
+ctx.strokeStyle='#40372a';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(2,-1);ctx.lineTo(19,-1);ctx.stroke();ctx.fillStyle='#ddd0ad';ctx.fillRect(17,-3,4,4);
+if(isPlayer){ctx.strokeStyle='#f6df9a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,17,0,Math.PI*2);ctx.stroke()}
+if(c.elite){ctx.strokeStyle='#f1d477';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,14,0,Math.PI*2);ctx.stroke()}
+if(c.hp<c.max){ctx.fillStyle='#251b16';ctx.fillRect(-11,-27,22,3);ctx.fillStyle='#c64d3d';ctx.fillRect(-11,-27,22*c.hp/c.max,3)}
+ctx.restore()}
+function draw(){ctx.clearRect(0,0,vw,vh);drawTerrain();ctx.save();ctx.translate(-camera.x,-camera.y);
+for(const v of villagers){ctx.fillStyle='#d1c19c';ctx.beginPath();ctx.arc(v.x,v.y,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#594d3b';ctx.fillRect(v.x-3,v.y-3,6,5)}
+for(const g of guards){if(g.hp>0)drawCharacter(g)}for(const e of enemies)if(e.hp>0)drawCharacter(e);drawCharacter(player,true);
+for(const b of bullets){ctx.fillStyle=b.faction==='enemy'?'#e76d43':'#f4df9e';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()}
+for(const p of particles){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
+if(player.sword>0){const s=screenPoint(player);ctx.strokeStyle='#f7e2a4';ctx.lineWidth=4;ctx.beginPath();ctx.arc(s.x,s.y,38,player.dir-.8,player.dir+.8);ctx.stroke()}
+ctx.restore();if(state==='menu')drawMenuPreview()}
+function drawMenuPreview(){ctx.save();ctx.globalAlpha=.18;ctx.translate(vw/2- camera.x,vh/2-camera.y);ctx.strokeStyle='#d4b36a';ctx.lineWidth=3;pathPoly(starPoints(WORLD.cx,WORLD.cy,390,315));ctx.stroke();ctx.restore()}
+function loop(now){const dt=Math.min((now-last)/1000||0,.033);last=now;if(state==='playing')update(dt);draw();requestAnimationFrame(loop)}
+function canvasPos(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
+canvas.addEventListener('pointermove',e=>{const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y});
+canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){mouse.down=true;const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y}});
+window.addEventListener('pointerup',()=>{mouse.down=false;touchFire=false});
+window.addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Space'&&state==='playing')sword();if(e.code==='KeyR'&&state==='playing')reload();if(e.code==='KeyE'&&state==='playing'){toast('Defensive cannons are manned by the fortress crew')}});window.addEventListener('keyup',e=>keys[e.code]=false);
+$('start-btn').addEventListener('click',start);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',start);$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));
+$('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();touchFire=true});$('touch-fire').addEventListener('pointerup',()=>touchFire=false);$('touch-sword').addEventListener('pointerdown',e=>{e.preventDefault();sword()});$('touch-reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
+const joy=$('joystick'),stick=$('stick');let joyId=null;joy.addEventListener('pointerdown',e=>{joyId=e.pointerId;joy.setPointerCapture(joyId);moveJoy(e)});joy.addEventListener('pointermove',e=>{if(e.pointerId===joyId)moveJoy(e)});function moveJoy(e){const r=joy.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),len=Math.hypot(dx,dy),scale=Math.min(1,42/(len||1));mobileMove={x:dx/42*scale,y:dy/42*scale};stick.style.transform='translate('+dx*scale+'px,'+dy*scale+'px)'}function resetJoy(){joyId=null;mobileMove={x:0,y:0};stick.style.transform='translate(0,0)'}joy.addEventListener('pointerup',resetJoy);joy.addEventListener('pointercancel',resetJoy);
+window.addEventListener('keydown',e=>{if(e.code==='Escape')pause()});
+reset();setTimeout(()=>{ui.loading.classList.add('hidden');ui.menu.classList.remove('hidden');state='menu';last=performance.now();requestAnimationFrame(loop)},650);
+})();
