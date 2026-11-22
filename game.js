@@ -91,17 +91,19 @@ for(const e of enemies){
  const target=nearestFriendly(e)||{x:WORLD.cx,y:WORLD.cy};
  const d=dist(e,target);e.dir=angle(e,target);
  const coreDistance=Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy);
- // Permanent stone wall is indestructible. Attackers choose a nearby door first; if it is breached, they attack a weaker wall section.
+ // Permanent stone wall is indestructible. Attackers use an existing breach; otherwise they attack a nearby door or weak wall section.
  if(e.type!=='cannon'&&coreDistance>FORT_WALL_RADIUS-14){
+  const speed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='swordsman'?82:47;
+  const breaches=[...doors,...weakWalls].filter(item=>item.destroyed);
+  if(breaches.length){let breach=breaches[0];for(const item of breaches)if(dist(e,item)<dist(e,breach))breach=item;e.dir=angle(e,breach);if(dist(e,breach)>22){e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt}else{e.dir=angle(e,{x:WORLD.cx,y:WORLD.cy});e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt}continue;}
   const targets=[...doors,...weakWalls].filter(item=>!item.destroyed);
   if(targets.length){let targetStructure=targets[0],best=Infinity;for(const item of targets){const scoreDistance=dist(e,item)*(item.kind==='door'?.72:1);if(scoreDistance<best){best=scoreDistance;targetStructure=item}}
-   e.dir=angle(e,targetStructure);const structureDistance=dist(e,targetStructure),speed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='swordsman'?82:47;
+   e.dir=angle(e,targetStructure);const structureDistance=dist(e,targetStructure);
    if(structureDistance>23){e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt}
    else if(e.attack<=0){const damage=e.type==='elephant'?48:e.type==='cavalry'?27:e.type==='swordsman'?21:15;damageBarrier(targetStructure,damage);e.attack=e.type==='elephant'?1.15:1.0}
    continue;
   }
-  // Once every weak point is destroyed, attackers can enter through the breaches.
-  e.dir=angle(e,{x:WORLD.cx,y:WORLD.cy});const speed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='swordsman'?82:47;e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt;continue;
+  e.dir=angle(e,{x:WORLD.cx,y:WORLD.cy});e.x+=Math.cos(e.dir)*speed*dt;e.y+=Math.sin(e.dir)*speed*dt;continue;
  }
  if(e.type!=='cannon'&&coreDistance<145&&e.attack<=0){fortress=Math.max(0,fortress-(e.type==='elephant'?4.5:e.type==='cavalry'?2.8:1.6));e.attack=1.1;continue;}
  if(e.type==='cannon'){
