@@ -18,7 +18,10 @@ https://tarveritasoficial.github.io/CoutoMistoHeritage/
 
 ## Current playable prototype
 
-- Star-shaped five-bastion fortress and surrounding countryside
+- Star-shaped five-bastion fortress with destructible walls, gates and bastions
+- Large open countryside: leave through the gates (open to you and your guard) and fight outside
+- Four fortified enemy camps (France, Spain, Portugal, England) with garrisons; destroy them with sword or musket. Each camp lost means smaller waves, and destroying all four wins the game
+- Minimap and camp counter
 - Couto Misto player soldier with musket and sword
 - Eight elite royal guards defending fixed positions
 - Four invading factions: Portugal, Spain, France and England

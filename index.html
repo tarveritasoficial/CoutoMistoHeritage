@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#17251d">
   <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
   <title>Couto Misto Heritage</title>
-  <link rel="stylesheet" href="styles.css?v=20261122-2340">
+  <link rel="stylesheet" href="styles.css?v=20261122-2350">
 </head>
 <body>
   <main id="game-shell">
     <header class="topbar">
       <div class="brand"><span class="crest">✦</span><div><strong>COUTO MISTO</strong><small>HERITAGE · FORTRESS DEFENCE</small></div></div>
-      <div class="top-stats"><span>WAVE <b id="wave">0</b></span><span>SCORE <b id="score">0</b></span><span>GUARDS <b id="guards">8/8</b></span><span>WALLS <b id="walls">20/20</b></span></div>
+      <div class="top-stats"><span>WAVE <b id="wave">0</b></span><span>SCORE <b id="score">0</b></span><span>GUARDS <b id="guards">8/8</b></span><span>WALLS <b id="walls">20/20</b></span><span>CAMPS <b id="camps">4/4</b></span></div>
       <button id="pause-btn" class="small-btn" aria-label="Pause">Ⅱ</button>
     </header>
     <section id="stage">
@@ -53,13 +53,13 @@
             <div class="deployment-total"><span>TOTAL SOLDIERS <em>(max 40)</em></span><strong id="deployment-total">20</strong></div>
             <div id="deployment-error" class="deployment-error" aria-live="polite"></div>
           </div>
-          <p class="wall-note">Nothing enters the fortress until it breaks a <b>gate</b>, <b>wall</b> or <b>bastion</b>. Gates fall first, so keep them manned. Masons repair the walls between waves.</p>
+          <p class="wall-note">Nothing enters the fortress until it breaks a <b>gate</b>, <b>wall</b> or <b>bastion</b>. Gates fall first, so keep them manned. Masons repair the walls between waves. The gates open for <b>you</b>: ride out and burn the four <b>enemy camps</b> to win.</p>
           <button id="start-btn" class="gold-btn">DEFEND THE FORTRESS</button><button id="how-btn" class="ghost-btn">FIELD ORDERS</button>
         </div>
       </div></div>
       <div id="pause" class="overlay hidden"><div class="menu-card compact"><div class="eyebrow">FIELD ORDERS</div><h2>PAUSED</h2><p>The battle waits for your command.</p><button id="resume-btn" class="gold-btn">RESUME BATTLE</button><button id="restart-btn" class="ghost-btn">RESTART DEFENCE</button><button id="menu-btn" class="ghost-btn">BACK TO MAIN MENU</button></div></div>
-      <div id="gameover" class="overlay hidden"><div class="menu-card compact"><div class="eyebrow">THE FORTRESS HAS FALLEN</div><h2>DEFEAT</h2><p id="final-stats">Your defence has ended.</p><button id="again-btn" class="gold-btn">DEFEND AGAIN</button><button id="over-menu-btn" class="ghost-btn">BACK TO MAIN MENU</button></div></div>
-      <div id="orders" class="overlay hidden"><div class="menu-card compact orders-card"><div class="eyebrow">FIELD MANUAL</div><h2>YOUR ORDERS</h2><p><b>WASD / Arrows</b> — move<br><b>Mouse</b> — aim<br><b>Left click</b> — fire musket<br><b>Space</b> — sword strike<br><b>R</b> — reload<br><b>E</b> — use nearby cannon<br><b>Esc</b> — pause</p><p><b>The walls</b> — nothing enters until it breaks a gate, wall or bastion. Gates are the weakest point. Walls shield your men from musket fire, and masons repair them between waves.</p><p class="muted">Mobile: use the left joystick to move and the right side to aim and fire. The sword and reload buttons are at the bottom.</p><button id="close-orders" class="gold-btn">UNDERSTOOD</button></div></div>
+      <div id="gameover" class="overlay hidden"><div class="menu-card compact"><div id="over-eyebrow" class="eyebrow">THE FORTRESS HAS FALLEN</div><h2 id="over-title">DEFEAT</h2><p id="final-stats">Your defence has ended.</p><button id="again-btn" class="gold-btn">DEFEND AGAIN</button><button id="over-menu-btn" class="ghost-btn">BACK TO MAIN MENU</button></div></div>
+      <div id="orders" class="overlay hidden"><div class="menu-card compact orders-card"><div class="eyebrow">FIELD MANUAL</div><h2>YOUR ORDERS</h2><p><b>WASD / Arrows</b> — move<br><b>Mouse</b> — aim<br><b>Left click</b> — fire musket<br><b>Space</b> — sword strike<br><b>R</b> — reload<br><b>E</b> — use nearby cannon<br><b>Esc</b> — pause</p><p><b>The walls</b> — nothing enters until it breaks a gate, wall or bastion. Gates are the weakest point. Walls shield your men from musket fire, and masons repair them between waves.</p><p><b>Leaving the fort</b> — your gates open for you and your guard. Sword or musket the <b>enemy camps</b> until they fall; each one destroyed means smaller enemy waves. Destroy all four to win. Garrisons defend each camp.</p><p class="muted">Mobile: use the left joystick to move and the right side to aim and fire. The sword and reload buttons are at the bottom.</p><button id="close-orders" class="gold-btn">UNDERSTOOD</button></div></div>
       <div id="hud" class="hud hidden">
         <div class="hud-left"><div class="meter"><span>HEALTH</span><div class="bar"><i id="health-bar"></i></div><b id="health-text">100</b></div><div class="meter"><span>FORTRESS</span><div class="bar fortress"><i id="fort-bar"></i></div><b id="fort-text">100%</b></div></div>
         <div class="hud-right"><div class="ammo"><span>MUSKET</span><b id="ammo">6 / 6</b><small id="reload-state">READY</small></div><div class="nation-legend"><span class="dot pt"></span> PT <span class="dot es"></span> ES <span class="dot fr"></span> FR <span class="dot en"></span> EN</div></div>
@@ -73,6 +73,6 @@
     </section>
     <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD</span></footer>
   </main>
-  <script src="game.js?v=20261122-2340"></script>
+  <script src="game.js?v=20261122-2350"></script>
 </body>
 </html>
