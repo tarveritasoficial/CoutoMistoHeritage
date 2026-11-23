@@ -77,24 +77,21 @@ function pushOutOfWalls(u,rad,friendly=false){
 // true for points on or inside the wall line (the side the defenders live on)
 function behindWalls(p,m=14){for(const n of CURTAIN_DIRS)if((p.x-WORLD.cx)*n.x+(p.y-WORLD.cy)*n.y>FORT.apothem+m)return false;return true}
 const RIVER_DEFS=[
- // One continuous L-shaped river: west-to-east across the north, then south
- // along the eastern side. Bridges are aligned perpendicular to each section.
+ // One unbroken river: across the north, down the east, then sweeping
+ // around the southern edge and back toward the southwest map boundary.
  {curves:[
   [[-80,985],[760,1075],[1450,932],[2200,1002]],
   [[2200,1002],[2700,1050],[3150,982],[3600,1010]],
-  [[3600,1010],[3670,1510],[3530,2090],[3600,2590]]
+  [[3600,1010],[3670,1510],[3530,2090],[3600,2590]],
+  [[3600,2590],[3650,3000],[3200,3500],[2200,3605]],
+  [[2200,3605],[1250,3570],[530,3500],[300,3400]],
+  [[300,3400],[70,3300],[0,2910],[-100,2600]]
  ],bridges:[
   {x:560,y:1010,angle:0},
   {x:3089,y:1000,angle:0},
   {x:3600,y:1600,angle:Math.PI/2},
   {x:3600,y:2300,angle:Math.PI/2}
- ]},
- // Southwest channel: enters from the west, rounds a broad smooth bend,
- // then follows the southern map edge and flows off-screen.
- {curves:[
-  [[-100,2600],[0,2910],[70,3300],[300,3400]],
-  [[300,3400],[530,3500],[1250,3570],[2200,3605]]
- ],bridges:[]}
+ ]}
 ];
 function riverCurvePoints(r){
  const out=[];
@@ -504,28 +501,35 @@ function buildCartRoadRoutes(){
   const p1={x:b.x-axis.x*88,y:b.y-axis.y*88},p2={x:b.x+axis.x*88,y:b.y+axis.y*88};
   const first=Math.hypot(start.x-p1.x,start.y-p1.y)<=Math.hypot(start.x-p2.x,start.y-p2.y);
   const entry=first?p1:p2,exit=first?p2:p1;
-  // Roads meet the camp perimeter rather than ending beneath its marker.
   const campDx=b.x-camp.x,campDy=b.y-camp.y,campD=Math.max(1,Math.hypot(campDx,campDy));
   const finish={x:camp.x+campDx/campD*92,y:camp.y+campDy/campD*92};
-  // Vary each route's bend direction and strength; keep the northwest approach
-  // tucked inside the western edge and lead it naturally into the relocated bridge.
   const dx=entry.x-start.x,dy=entry.y-start.y,d=Math.max(1,Math.hypot(dx,dy));
   const side=(Math.round(b.x/100)+Math.round(b.y/100))%2?1:-1;
-  const bend= b.x<700?95:145+(Math.round(b.x/10)%4)*38;
+  const bend=b.x<700?95:145+(Math.round(b.x/10)%4)*38;
   const approach={x:(start.x+entry.x)*.5-(dy/d)*bend*side,y:(start.y+entry.y)*.5+(dx/d)*bend*side};
   const ex=finish.x-exit.x,ey=finish.y-exit.y,ed=Math.max(1,Math.hypot(ex,ey));
   const departBend=b.x<700?72:115+(Math.round(b.y/10)%4)*34;
   const departure={x:(exit.x+finish.x)*.5-(ey/ed)*departBend*side,y:(exit.y+finish.y)*.5+(ex/ed)*departBend*side};
   routes.push({start,approach,entry,exit,departure,finish});
  }
+ // Four outward roads leave each camp and continue all the way to the map edge.
+ for(let i=0;i<CAMP_SITES.length;i++){
+  const camp=CAMP_SITES[i],dx=camp.x-WORLD.cx,dy=camp.y-WORLD.cy,d=Math.max(1,Math.hypot(dx,dy)),ux=dx/d,uy=dy/d;
+  const tx=ux>0?(WORLD.w-camp.x)/ux:ux<0?(0-camp.x)/ux:Infinity;
+  const ty=uy>0?(WORLD.h-camp.y)/uy:uy<0?(0-camp.y)/uy:Infinity;
+  const t=Math.min(tx,ty),start={x:camp.x+ux*92,y:camp.y+uy*92},finish={x:camp.x+ux*t,y:camp.y+uy*t};
+  const bend=(i%2?1:-1)*125,control={x:(start.x+finish.x)*.5-uy*bend,y:(start.y+finish.y)*.5+ux*bend};
+  routes.push({edge:true,start,control,finish});
+ }
  return routes;
 }
 function drawCartRoads(project,scale){
- const routes=buildCartRoadRoutes();
+ const routes=buildCartRoadRoutes(),p=project||((p)=>p);
  ctx.lineCap='round';ctx.lineJoin='round';
  for(const r of routes){
-  const p=project||((p)=>p),a=p(r.start),b=p(r.approach),c=p(r.entry),d=p(r.exit),e=p(r.departure),f=p(r.finish);
-  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(b.x,b.y,c.x,c.y);ctx.lineTo(d.x,d.y);ctx.quadraticCurveTo(e.x,e.y,f.x,f.y);
+  ctx.beginPath();
+  if(r.edge){const a=p(r.start),b=p(r.control),c=p(r.finish);ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(b.x,b.y,c.x,c.y)}
+  else{const a=p(r.start),b=p(r.approach),c=p(r.entry),d=p(r.exit),e=p(r.departure),f=p(r.finish);ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(b.x,b.y,c.x,c.y);ctx.lineTo(d.x,d.y);ctx.quadraticCurveTo(e.x,e.y,f.x,f.y)}
   ctx.strokeStyle='#66563b';ctx.lineWidth=38*scale;ctx.stroke();
   ctx.strokeStyle='#a99a70';ctx.lineWidth=28*scale;ctx.stroke();
   ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2*scale;ctx.setLineDash([10*scale,15*scale]);ctx.stroke();
