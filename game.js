@@ -532,12 +532,18 @@ function spawnWave(){
  // fewer camps standing means smaller waves
  const active=enemies.reduce((n,e)=>n+(e.hp>0?1:0),0);
  const available=Math.max(0,MAX_ACTIVE_ENEMIES-active);
- const count=Math.min(MAX_WAVE_ENEMIES,available,Math.max(6,Math.ceil((8+Math.min(wave,14)*4)*alive.length/camps.length)));
+ const count=Math.min(MAX_WAVE_ENEMIES,available,Math.max(12,Math.ceil((18+Math.min(wave,14)*6)*alive.length/camps.length)));
  if(count<=0)return;
+ const waveGroups=[];
  for(let i=0;i<count;i++){
-  const camp=alive[i%alive.length];let type='rifleman';const roll=Math.random();
+  const campIndex=i%alive.length,camp=alive[campIndex];let type='rifleman';const roll=Math.random();
   if(wave>=7&&roll<.045)type='elephant';else if(wave>=3&&roll<.15)type='cavalry';else if(wave>=2&&roll<.34)type='archer';else if(wave>=2&&roll<.52)type='spearman';else if(roll<(wave>=2?.68:.3))type='swordsman';
-  const e=makeSoldier(camp.x+rand(-90,90),camp.y+rand(-90,90),camp.faction,type,false);e.hp+=Math.min(45,Math.floor(wave*.6));e.max=e.hp;enemies.push(e);
+  const e=makeSoldier(camp.x+rand(-90,90),camp.y+rand(-90,90),camp.faction,type,false);e.hp+=Math.min(45,Math.floor(wave*.6));e.max=e.hp;
+  const groupIndex=Math.floor(i/6),groupKey=campIndex+':'+groupIndex;
+  let formation=waveGroups.find(g=>g.key===groupKey);
+  if(!formation){formation={key:groupKey,members:[],leader:null,x:e.x,y:e.y,dir:angle(e,{x:WORLD.cx,y:WORLD.cy}),kind:groupIndex%2?'line':'wedge'};waveGroups.push(formation)}
+  e.waveFormation=formation;e.waveFormationIndex=formation.members.length;formation.members.push(e);if(!formation.leader)formation.leader=e;
+  enemies.push(e);
  }
  if(wave>=4&&wave%2===0&&active+count<MAX_ACTIVE_ENEMIES){const camp=alive[Math.floor(rand(0,alive.length))],a=Math.atan2(camp.y-WORLD.cy,camp.x-WORLD.cx),cr=rand(580,640),e=makeSoldier(WORLD.cx+Math.cos(a)*cr+rand(-70,70),WORLD.cy+Math.sin(a)*cr+rand(-70,70),camp.faction,'cannon',false);e.hp=130;e.max=130;enemies.push(e)}
  spawnClock=0;waveActive=true;
@@ -612,6 +618,41 @@ for(const e of enemies){
   continue;
  }
  if(e.campGuard){campGuardAI(e,dt);continue}
+ // Wave infantry and ranged troops advance in compact line/wedge groups.
+ // Formations dissolve near combat range so units can siege and fight normally.
+ const waveFormation=e.waveFormation;
+ if(waveFormation){
+  const formationTarget=dist(e,player)<240?player:{x:WORLD.cx,y:WORLD.cy};
+  if(dist(e,formationTarget)>270){
+   if(!waveFormation.leader||waveFormation.leader.hp<=0){
+    waveFormation.leader=waveFormation.members.find(m=>m.hp>0)||null;
+    if(waveFormation.leader){waveFormation.x=waveFormation.leader.x;waveFormation.y=waveFormation.leader.y}
+   }
+   if(waveFormation.leader){
+    if(e===waveFormation.leader){
+     e.dir=angle(e,formationTarget);
+     moveEnemyToward(e,formationTarget,(e.type==='elephant'?42:e.type==='cavalry'?82:66)*dt);
+     waveFormation.x=e.x;waveFormation.y=e.y;waveFormation.dir=e.dir;
+    }else{
+     const index=e.waveFormationIndex;let sx=0,sy=0;
+     if(waveFormation.kind==='line'){
+      const lateral=(index-(waveFormation.members.length-1)/2)*25;
+      sx=waveFormation.x-Math.sin(waveFormation.dir)*lateral-Math.cos(waveFormation.dir)*34;
+      sy=waveFormation.y+Math.cos(waveFormation.dir)*lateral-Math.sin(waveFormation.dir)*34;
+     }else{
+      const row=Math.ceil((Math.sqrt(8*index+1)-1)/2),start=row*(row-1)/2,col=index-start;
+      const lateral=(col-(row-1)/2)*27,back=row*32;
+      sx=waveFormation.x-Math.cos(waveFormation.dir)*back-Math.sin(waveFormation.dir)*lateral;
+      sy=waveFormation.y-Math.sin(waveFormation.dir)*back+Math.cos(waveFormation.dir)*lateral;
+     }
+     const slot={x:sx,y:sy};e.dir=angle(e,slot);
+     if(dist(e,slot)>12)moveEnemyToward(e,slot,78*dt);
+    }
+    continue;
+   }
+  }
+  e.waveFormation=null;
+ }
  // Wave enemies assault the fortress by default. They only divert to the
  // player when the player comes within close engagement range, then resume
  // the fortress assault once the player moves away.
