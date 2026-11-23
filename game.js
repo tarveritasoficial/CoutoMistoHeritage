@@ -727,7 +727,7 @@ for(const e of enemies){
  // Formations dissolve near combat range so units can siege and fight normally.
  const waveFormation=e.waveFormation;
  if(waveFormation){
-  const formationTarget=!breachOpen&&dist(e,player)<240?player:{x:WORLD.cx,y:WORLD.cy};
+  const nearby=nearbyFriendly(e,270);const formationTarget=nearby||(!breachOpen&&dist(e,player)<240?player:{x:WORLD.cx,y:WORLD.cy});
   if(dist(e,formationTarget)>270){
    if(!waveFormation.leader||waveFormation.leader.hp<=0){
     waveFormation.leader=waveFormation.members.find(m=>m.hp>0)||null;
@@ -761,8 +761,8 @@ for(const e of enemies){
  // Wave enemies assault the fortress by default. They only divert to the
  // player when the player comes within close engagement range, then resume
  // the fortress assault once the player moves away.
- const playerDistance=dist(e,player);
- const target=!breachOpen&&playerDistance<240?player:{x:WORLD.cx,y:WORLD.cy};
+ const playerDistance=dist(e,player),nearby=nearbyFriendly(e,220);
+ const target=nearby||(!breachOpen&&playerDistance<240?player:{x:WORLD.cx,y:WORLD.cy});
  const d=dist(e,target);e.dir=angle(e,target);
  if(e.type==='cannon'){
   // Opening artillery advances from the western staging line, then holds siege range.
@@ -812,6 +812,7 @@ for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(!v.panic&&enemies.so
 if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));if(hudRefreshTimer>=.12){hudRefreshTimer=0;updateHud()}}
 function eliteDamage(){return 24}
 function nearestFriendly(e){let best=player,bd=dist(e,player);for(const g of friendlyUnits){if(g.hp>0&&dist(e,g)<bd){best=g;bd=dist(e,g)}}return best}
+function nearbyFriendly(e,max=220){const target=nearestFriendly(e);return dist(e,target)<=max?target:null}
 function onScreen(x,y,m=60){const hw=vw/(2*zoom),hh=vh/(2*zoom);return x>camera.x-hw-m&&x<camera.x+hw+m&&y>camera.y-hh-m&&y<camera.y+hh+m}
 function drawTerrainDetails(){
  // Fine, deterministic ground texture: the pattern never flickers between frames.
