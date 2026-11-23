@@ -523,7 +523,9 @@ function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save(
  // Layered meadow colours, grass tufts and small stones make the open field feel lived-in.
  ctx.fillStyle='#65784a';for(let i=0;i<260;i++){const x=(i*197)%WORLD.w,y=(i*317)%WORLD.h;if(!onScreen(x,y,50))continue;const rx=12+(i*17)%24,ry=7+(i*11)%12,rotation=((i*13)%60)/10;ctx.beginPath();ctx.ellipse(x,y,rx,ry,rotation,0,Math.PI*2);ctx.fill()}
  drawTerrainDetails();
- // Organic cart roads with varied bends, shared with the minimap.\n drawCartRoads(null,1);\n drawRiversAndBridges();
+ // Organic cart roads with varied bends, shared with the minimap.
+ drawCartRoads(null,1);
+ drawRiversAndBridges();
  for(const c of camps)drawEnemyCamp(c);
  drawTrees();drawFortress();ctx.restore()}
 function drawRiverPath(r){
