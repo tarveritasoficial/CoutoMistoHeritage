@@ -572,18 +572,6 @@ function spawnOpeningArmy(){
   'swordsman','swordsman','spearman','rifleman','rifleman',
   'swordsman','spearman','spearman','rifleman','rifleman'
  ];
- const deployFormation=(faction,cx,cy,ux,uy,groupIndex,count,types,spacing=76)=>{
-  const px=-uy,py=ux,offset=(groupIndex-(count-1)/2)*spacing;
-  const leaderX=cx+px*offset,leaderY=cy+py*offset;
-  const formation={members:[],leader:null,x:leaderX,y:leaderY,dir:Math.atan2(uy,ux),kind:groupIndex%2?'line':'wedge'};
-  for(let slot=0;slot<5;slot++){
-   const type=types[(groupIndex*5+slot)%types.length];
-   const e=makeSoldier(leaderX+rand(-15,15),leaderY+rand(-15,15),faction,type,false);
-   e.waveFormation=formation;e.waveFormationIndex=formation.members.length;
-   formation.members.push(e);if(!formation.leader)formation.leader=e;
-   enemies.push(e);
-  }
- };
  for(const nation of nations){
   const camp=nation.camp,dx=WORLD.cx-camp.x,dy=WORLD.cy-camp.y,len=Math.hypot(dx,dy)||1;
   const ux=dx/len,uy=dy/len,px=-uy,py=ux;
