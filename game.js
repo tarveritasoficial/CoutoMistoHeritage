@@ -330,7 +330,7 @@ function damageCamp(c,amount){
 }
 function campGuardAI(e,dt){
  let t=null,bd=300;
- for(const f of [player,...escorts]){if(f.hp<=0)continue;const d=dist(e,f);if(d<bd){bd=d;t=f}}
+ for(const f of [player,...friendlyUnits]){if(f.hp<=0)continue;const d=dist(e,f);if(d<bd){bd=d;t=f}}
  if(!t){const hd=dist(e,e.home);if(hd>10){e.dir=angle(e,e.home);moveEnemyToward(e,e.home,60*dt)}return}
  e.dir=angle(e,t);const d=dist(e,t);
  if(e.type==='rifleman'){if(d>200)moveEnemyToward(e,t,50*dt);else if(e.attack<=0){shoot(e,e.dir,'enemy',13,390);e.attack=1.65}}
@@ -484,7 +484,7 @@ function reset(){
  const activeCount=clamp(Math.floor(Number($('active-count').value)||0),0,40);
  walls=buildWalls();waveActive=false;victoryTimer=0;camps=buildCamps();sheep=buildSheep();cows=buildFarmAnimals('cow',9);chickens=buildFarmAnimals('chicken',20);
  // Three lightly armed local peasants defend each safe farm field with slings.
- for(const farm of FARM_SITES){if(!farmSiteSafe(farm))continue;for(const [ox,oy] of [[-48,-20],[35,-32],[22,48]]){const p=makeSoldier(farm.x+ox,farm.y+oy,'couto','archer',true,false);p.peasant=true;p.hp=p.max=42;p.home={x:p.x,y:p.y};p.attack=rand(.3,1.4);p.reload=rand(.3,1.4);peasants.push(p)}}
+ for(const farm of FARM_SITES){if(!farmSiteSafe(farm))continue;for(const [ox,oy] of [[-48,-20],[35,-32],[22,48]]){const p=makeSoldier(farm.x+ox,farm.y+oy,'couto','archer',true,false);p.peasant=true;p.hp=p.max=32;p.home={x:p.x,y:p.y};p.attack=rand(.3,1.4);p.reload=rand(.3,1.4);peasants.push(p)}}
  wallPosts(wallCount).forEach((p,i)=>{
   const g=makeSoldier(p.x,p.y,'couto','rifleman',true,true);g.slot=i;g.home={x:p.x,y:p.y};g.dir=p.a;guards.push(g);
  });
@@ -670,7 +670,7 @@ for(const p of peasants){
  const target=nearestEnemy(p,310);
  if(target){
   p.dir=angle(p,target);p.attack-=dt;
-  if(p.attack<=0){shoot(p,p.dir,'couto',13,470);p.attack=rand(1.45,1.9)}
+  if(p.attack<=0){shoot(p,p.dir,'couto',9,450);p.attack=rand(1.65,2.05)}
  }else{
   const d=dist(p,p.home);if(d>3)p.dir=moveToward(p,p.home,Math.min(48*dt,d));
  }
@@ -727,7 +727,7 @@ for(const e of enemies){
  // Formations dissolve near combat range so units can siege and fight normally.
  const waveFormation=e.waveFormation;
  if(waveFormation){
-  const nearby=nearbyFriendly(e,270);const formationTarget=nearby||(!breachOpen&&dist(e,player)<240?player:{x:WORLD.cx,y:WORLD.cy});
+  const nearby=nearbyFriendly(e,520);const formationTarget=nearby||(!breachOpen&&dist(e,player)<240?player:{x:WORLD.cx,y:WORLD.cy});
   if(dist(e,formationTarget)>270){
    if(!waveFormation.leader||waveFormation.leader.hp<=0){
     waveFormation.leader=waveFormation.members.find(m=>m.hp>0)||null;
@@ -761,7 +761,7 @@ for(const e of enemies){
  // Wave enemies assault the fortress by default. They only divert to the
  // player when the player comes within close engagement range, then resume
  // the fortress assault once the player moves away.
- const playerDistance=dist(e,player),nearby=nearbyFriendly(e,220);
+ const playerDistance=dist(e,player),nearby=nearbyFriendly(e,520);
  const target=nearby||(!breachOpen&&playerDistance<240?player:{x:WORLD.cx,y:WORLD.cy});
  const d=dist(e,target);e.dir=angle(e,target);
  if(e.type==='cannon'){
@@ -773,7 +773,7 @@ for(const e of enemies){
  const rad=unitRadius(e),inside=insideFort(e),coreDistance=Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy);
  if(coreDistance<145&&e.attack<=0){fortress=Math.max(0,fortress-(e.type==='elephant'?8:e.type==='cavalry'?4.5:2.4));e.attack=1.0;continue;}
  // melee troops outside the fort cannot reach the defenders: they must break a wall, gate or bastion first
- if(e.type!=='rifleman'&&!inside&&behindWalls(target)){siege(e,dt,rad);continue}
+ if(e.type!=='rifleman'&&!inside&&behindWalls(target)&&!target.peasant){siege(e,dt,rad);continue}
  if(e.type==='archer'){
    if(d>255)moveEnemyToward(e,target,66*dt);else if(d<175)moveEnemyToward(e,{x:e.x-Math.cos(e.dir)*70,y:e.y-Math.sin(e.dir)*70},48*dt);
    else if(e.attack<=0){shoot(e,e.dir,'enemy',10,470);e.attack=1.9}
@@ -812,7 +812,7 @@ for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(!v.panic&&enemies.so
 if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));if(hudRefreshTimer>=.12){hudRefreshTimer=0;updateHud()}}
 function eliteDamage(){return 24}
 function nearestFriendly(e){let best=player,bd=dist(e,player);for(const g of friendlyUnits){if(g.hp>0&&dist(e,g)<bd){best=g;bd=dist(e,g)}}return best}
-function nearbyFriendly(e,max=220){const target=nearestFriendly(e);return dist(e,target)<=max?target:null}
+function nearbyFriendly(e,max=520){const target=nearestFriendly(e);return dist(e,target)<=max?target:null}
 function onScreen(x,y,m=60){const hw=vw/(2*zoom),hh=vh/(2*zoom);return x>camera.x-hw-m&&x<camera.x+hw+m&&y>camera.y-hh-m&&y<camera.y+hh+m}
 function drawTerrainDetails(){
  // Fine, deterministic ground texture: the pattern never flickers between frames.
