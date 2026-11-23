@@ -232,7 +232,8 @@ function moveEnemyToward(e,p,len){
  return moveToward(e,p,len);
 }
 function moveToward(u,p,len){
- const goal=riverRouteTarget(u,p),d=dist(u,goal),a=angle(u,goal),step=Math.min(len,d);
+ // Friendly units use ordinary land movement; bridge routing is handled by enemyMoveBridge only.
+ const goal=u.friendly?p:riverRouteTarget(u,p),d=dist(u,goal),a=angle(u,goal),step=Math.min(len,d);
  moveLand(u,Math.cos(a)*step,Math.sin(a)*step);return a;
 }
 function stepTo(u,p,len){return moveToward(u,p,len)}
