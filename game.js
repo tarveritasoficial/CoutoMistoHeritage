@@ -719,14 +719,84 @@ function drawOffscreenMarkers(){
 }
 
 function drawMinimap(){
- const mw=Math.round(clamp(vw*.15,96,168)),mh=Math.round(mw*WORLD.h/WORLD.w),mx=12,my=88,sx=mw/WORLD.w,sy=mh/WORLD.h,X=x=>mx+x*sx,Y=y=>my+y*sy;
- ctx.save();ctx.globalAlpha=.9;ctx.fillStyle='#101a15';ctx.fillRect(mx-2,my-2,mw+4,mh+4);ctx.fillStyle='#3d5532';ctx.fillRect(mx,my,mw,mh);ctx.globalAlpha=1;
- ctx.strokeStyle='#bda365';ctx.lineWidth=1;ctx.strokeRect(mx-2.5,my-2.5,mw+5,mh+5);
- pathPoly(BASTION_ANGLES.map(a=>({x:X(WORLD.cx+Math.cos(a)*FORT.bastionR),y:Y(WORLD.cy+Math.sin(a)*FORT.bastionR)})));ctx.fillStyle='#a9a080';ctx.fill();
- for(const c of camps){ctx.fillStyle=c.destroyed?'#59554b':(FACTIONS[c.faction].a);ctx.fillRect(X(c.x)-3.5,Y(c.y)-3.5,7,7);ctx.strokeStyle=c.destroyed?'#2a2620':'#101a15';ctx.lineWidth=1;ctx.strokeRect(X(c.x)-3.5,Y(c.y)-3.5,7,7);if(c.destroyed){ctx.strokeStyle='#d9d2bd';ctx.beginPath();ctx.moveTo(X(c.x)-3,Y(c.y)-3);ctx.lineTo(X(c.x)+3,Y(c.y)+3);ctx.moveTo(X(c.x)+3,Y(c.y)-3);ctx.lineTo(X(c.x)-3,Y(c.y)+3);ctx.stroke()}}
- ctx.fillStyle='#e2574a';for(const e of enemies){if(e.hp>0&&!e.campGuard)ctx.fillRect(X(e.x)-1,Y(e.y)-1,2.2,2.2)}
- ctx.strokeStyle='rgba(240,225,170,.75)';ctx.lineWidth=1;ctx.strokeRect(X(camera.x-vw/(2*zoom)),Y(camera.y-vh/(2*zoom)),(vw/zoom)*sx,(vh/zoom)*sy);
- ctx.fillStyle='#f6df9a';ctx.beginPath();ctx.arc(X(player.x),Y(player.y),2.8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#101a15';ctx.stroke();
+ const mw=Math.round(clamp(vw*.17,112,190)),mh=Math.round(mw*WORLD.h/WORLD.w),mx=12,my=88,sx=mw/WORLD.w,sy=mh/WORLD.h,X=x=>mx+x*sx,Y=y=>my+y*sy;
+ ctx.save();
+ // Framed map with subtle terrain relief.
+ ctx.globalAlpha=.96;ctx.fillStyle='#101a15';ctx.fillRect(mx-5,my-5,mw+10,mh+10);
+ ctx.fillStyle='#66794b';ctx.fillRect(mx,my,mw,mh);
+ ctx.globalAlpha=1;
+ for(let i=0;i<90;i++){
+  const x=(i*173+61)%WORLD.w,y=(i*293+117)%WORLD.h;
+  ctx.fillStyle=i%3?'rgba(35,63,38,.22)':'rgba(185,172,118,.16)';
+  ctx.fillRect(X(x),Y(y),Math.max(1,mw/WORLD.w*34),Math.max(1,mh/WORLD.h*34));
+ }
+ // Rivers follow the same cubic curves as the main battlefield.
+ ctx.lineCap='round';ctx.lineJoin='round';
+ for(const r of RIVER_DEFS){
+  ctx.beginPath();ctx.moveTo(X(-80),Y(r.y-25));
+  ctx.bezierCurveTo(X(760),Y(r.y+65),X(1450),Y(r.y-78),X(2200),Y(r.y-8));
+  ctx.bezierCurveTo(X(2950),Y(r.y+62),X(3660),Y(r.y-68),X(4480),Y(r.y+18));
+  ctx.strokeStyle='#263e40';ctx.lineWidth=Math.max(5,mw/WORLD.w*142);ctx.stroke();
+  ctx.strokeStyle='#39777d';ctx.lineWidth=Math.max(3,mw/WORLD.w*94);ctx.stroke();
+  ctx.strokeStyle='rgba(156,205,197,.48)';ctx.lineWidth=Math.max(1,mw/WORLD.w*3);ctx.stroke();
+ }
+ // Cart roads, matching the exact routes drawn on the battlefield.
+ const routes=[];
+ for(const river of RIVER_DEFS)for(const b of river.bridges){
+  let gate=GATE_ANGLES[0],gateScore=Infinity;
+  for(const a of GATE_ANGLES){const d=Math.hypot(WORLD.cx+Math.cos(a)*430-b.x,WORLD.cy+Math.sin(a)*430-b.y);if(d<gateScore){gateScore=d;gate=a}}
+  let camp=CAMP_SITES[0],campScore=Infinity;
+  for(const c of CAMP_SITES){const d=Math.hypot(c.x-b.x,c.y-b.y);if(d<campScore){campScore=d;camp=c}}
+  const origin={x:WORLD.cx+Math.cos(gate)*430,y:WORLD.cy+Math.sin(gate)*430};
+  const axis={x:-Math.sin(b.angle||0),y:Math.cos(b.angle||0)};
+  const p1={x:b.x-axis.x*88,y:b.y-axis.y*88},p2={x:b.x+axis.x*88,y:b.y+axis.y*88};
+  const first=Math.hypot(origin.x-p1.x,origin.y-p1.y)<=Math.hypot(origin.x-p2.x,origin.y-p2.y);
+  routes.push([origin,first?p1:p2,first?p2:p1,{x:camp.x,y:camp.y}]);
+ }
+ for(const route of routes){
+  ctx.beginPath();ctx.moveTo(X(route[0].x),Y(route[0].y));
+  for(let i=1;i<route.length;i++)ctx.lineTo(X(route[i].x),Y(route[i].y));
+  ctx.strokeStyle='#493d2c';ctx.lineWidth=Math.max(3,mw/WORLD.w*38);ctx.stroke();
+  ctx.strokeStyle='#c2ad7b';ctx.lineWidth=Math.max(1.5,mw/WORLD.w*23);ctx.stroke();
+  ctx.strokeStyle='rgba(247,225,169,.7)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+ }
+ // Bridge decks are visible as short, bright cross-river markers.
+ for(const river of RIVER_DEFS)for(const b of river.bridges){
+  ctx.save();ctx.translate(X(b.x),Y(b.y));ctx.rotate(b.angle||0);
+  ctx.fillStyle='#c59a61';ctx.fillRect(-Math.max(2,mw/WORLD.w*30),-Math.max(3,mh/WORLD.h*72),Math.max(4,mw/WORLD.w*60),Math.max(6,mh/WORLD.h*144));
+  ctx.strokeStyle='#493321';ctx.lineWidth=1;ctx.strokeRect(-Math.max(2,mw/WORLD.w*30),-Math.max(3,mh/WORLD.h*72),Math.max(4,mw/WORLD.w*60),Math.max(6,mh/WORLD.h*144));
+  ctx.restore();
+ }
+ // Fortress footprint, walls and gates.
+ const fortPts=BASTION_ANGLES.map(a=>({x:X(WORLD.cx+Math.cos(a)*FORT.bastionR),y:Y(WORLD.cy+Math.sin(a)*FORT.bastionR)}));
+ ctx.beginPath();fortPts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();
+ ctx.fillStyle='#a9a080';ctx.fill();ctx.strokeStyle='#e0d0a0';ctx.lineWidth=2;ctx.stroke();
+ for(const a of GATE_ANGLES){
+  const gx=X(WORLD.cx+Math.cos(a)*430),gy=Y(WORLD.cy+Math.sin(a)*430);
+  ctx.fillStyle='#e4c47f';ctx.beginPath();ctx.arc(gx,gy,2.2,0,Math.PI*2);ctx.fill();
+ }
+ // Camps and their faction colours.
+ for(const c of camps){
+  const cx=X(c.x),cy=Y(c.y),f=FACTIONS[c.faction]||FACTIONS.couto;
+  ctx.fillStyle=c.destroyed?'#59554b':f.a;ctx.fillRect(cx-3.5,cy-3.5,7,7);
+  ctx.strokeStyle='#101a15';ctx.lineWidth=1;ctx.strokeRect(cx-3.5,cy-3.5,7,7);
+  if(c.destroyed){ctx.strokeStyle='#eee1c7';ctx.beginPath();ctx.moveTo(cx-3,cy-3);ctx.lineTo(cx+3,cy+3);ctx.moveTo(cx+3,cy-3);ctx.lineTo(cx-3,cy+3);ctx.stroke()}
+ }
+ // Small forest patches and landmark clearings make the terrain easier to read.
+ for(let i=0;i<28;i++){
+  const x=(i*317+190)%WORLD.w,y=(i*541+370)%WORLD.h;
+  if(riverDistance(x,y)<95||Math.hypot(x-WORLD.cx,y-WORLD.cy)<560)continue;
+  ctx.fillStyle='rgba(27,49,30,.58)';ctx.beginPath();ctx.arc(X(x),Y(y),Math.max(1.2,mw/WORLD.w*38),0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(119,139,78,.8)';ctx.beginPath();ctx.arc(X(x)-1,Y(y)-1,Math.max(.7,mw/WORLD.w*17),0,Math.PI*2);ctx.fill();
+ }
+ // Enemy wave positions.
+ ctx.fillStyle='#f06a5d';for(const e of enemies){if(e.hp>0&&!e.campGuard){ctx.beginPath();ctx.arc(X(e.x),Y(e.y),1.6,0,Math.PI*2);ctx.fill()}}
+ // Current camera viewport and player marker.
+ ctx.strokeStyle='rgba(255,238,185,.9)';ctx.lineWidth=1;
+ ctx.strokeRect(X(camera.x-vw/(2*zoom)),Y(camera.y-vh/(2*zoom)),(vw/zoom)*sx,(vh/zoom)*sy);
+ ctx.fillStyle='#fff0a8';ctx.beginPath();ctx.arc(X(player.x),Y(player.y),3,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#172019';ctx.stroke();
+ ctx.strokeStyle='#d8c28c';ctx.lineWidth=1.2;ctx.strokeRect(mx-.5,my-.5,mw+1,mh+1);
  ctx.restore();
 }
 function drawMenuPreview(){ctx.save();ctx.globalAlpha=.18;ctx.translate(vw/2-camera.x*zoom,vh/2-camera.y*zoom);ctx.scale(zoom,zoom);ctx.strokeStyle='#d4b36a';ctx.lineWidth=3;pathPoly(starPoints(WORLD.cx,WORLD.cy,500,395));ctx.stroke();ctx.restore()}
