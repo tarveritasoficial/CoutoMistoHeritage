@@ -463,12 +463,14 @@ function launchCavalryCharge(bridge){
  const target=targets.sort((a,b)=>dist(player,a)-dist(player,b))[0];
  const edgeX=target.x<WORLD.cx?18:WORLD.w-18,edgeY=target.y<WORLD.cy?18:WORLD.h-18;
  const useX=Math.abs(target.x-WORLD.cx)>Math.abs(target.y-WORLD.cy);
+ const formation={x:useX?edgeX:target.x,y:useX?target.y:edgeY,dir:angle({x:useX?edgeX:target.x,y:useX?target.y:edgeY},player)};
  for(let i=0;i<20;i++){
   const spread=(i-9.5)*13;
   const x=clamp(useX?edgeX:target.x+spread,18,WORLD.w-18);
   const y=clamp(useX?target.y+spread:edgeY,18,WORLD.h-18);
   const h=makeSoldier(x,y,target.faction,'cavalry',false,false);
   h.hp=h.max=105;h.chargeCamp=target;h.chargeSpeed=235;h.attack=rand(.05,.45);h.campGuard=false;
+  h.chargeFormation=formation;h.chargeIndex=i;
   enemies.push(h);
  }
  banner('ENEMY CAVALRY · 20 HORSEMEN');
@@ -536,10 +538,22 @@ for(const e of enemies){
   if(camp.destroyed){e.chargeCamp=null;continue}
   let threat=player,td=dist(e,player);
   for(const ally of [...escorts,...guards,...defenders])if(ally.hp>0&&dist(e,ally)<td){threat=ally;td=dist(e,ally)}
-  const goal=td<620?threat:player;
-  const gd=dist(e,goal);e.dir=angle(e,goal);
-  if(gd>34)moveEnemyToward(e,goal,e.chargeSpeed*dt);
-  else if(e.attack<=0){if(goal===player){if(player.invuln<=0){player.hp-=22;player.invuln=.45}}else goal.hp-=26;e.attack=.72}
+  const goal=td<620?threat:player,gd=dist(e,goal),formation=e.chargeFormation;
+  if(formation){
+   if(e.chargeIndex===0){
+    e.dir=angle(e,goal);
+    if(gd>34)moveEnemyToward(e,goal,e.chargeSpeed*dt);
+    formation.x=e.x;formation.y=e.y;formation.dir=e.dir;
+   }else{
+    let row=0,start=0;while(e.chargeIndex>=start+row+1){start+=row+1;row++}
+    const col=e.chargeIndex-start,cols=row===5?5:row+1;
+    const lateral=(col-(cols-1)/2)*31,back=row*38,fd=formation.dir;
+    const slot={x:formation.x-Math.cos(fd)*back-Math.sin(fd)*lateral,y:formation.y-Math.sin(fd)*back+Math.cos(fd)*lateral};
+    e.dir=angle(e,slot);
+    if(dist(e,slot)>13)moveEnemyToward(e,slot,e.chargeSpeed*dt);
+   }
+  }else{e.dir=angle(e,goal);if(gd>34)moveEnemyToward(e,goal,e.chargeSpeed*dt)}
+  if(gd<=34&&e.attack<=0){if(goal===player){if(player.invuln<=0){player.hp-=22;player.invuln=.45}}else goal.hp-=26;e.attack=.72}
   continue;
  }
  if(e.campGuard){campGuardAI(e,dt);continue}
