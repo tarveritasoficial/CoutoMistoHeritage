@@ -163,11 +163,13 @@ const RIVER_COLLISION_CELL=96,RIVER_COLLISION_GRID=new Map();
 })();
 let riverCollisionChecks=0;
 function riverBlocked(x,y){
- for(let i=0;i<RIVER_DEFS.length;i++)if(riverBridgePass(x,y,RIVER_DEFS[i]))return false;
  const bucket=RIVER_COLLISION_GRID.get(Math.floor(x/RIVER_COLLISION_CELL)+','+Math.floor(y/RIVER_COLLISION_CELL));
  if(!bucket)return false;
  const limit2=64*64;
  for(const seg of bucket){
+  // Preserve the original per-river bridge exception: a bridge over one river
+  // must never make a nearby second river passable.
+  if(riverBridgePass(x,y,RIVER_DEFS[seg.ri]))continue;
   riverCollisionChecks++;
   const t=clamp(((x-seg.ax)*seg.dx+(y-seg.ay)*seg.dy)/(seg.len2||1),0,1);
   const dx=x-(seg.ax+t*seg.dx),dy=y-(seg.ay+t*seg.dy);
