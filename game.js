@@ -437,13 +437,19 @@ function repairWalls(){
 }
 // Where an enemy outside the fort should go: the nearest weak point, or straight through an existing breach.
 function assaultPlan(e){
+ // Once any section is breached, attackers prioritise the nearest opening instead
+ // of wasting time damaging another intact section.
+ let breach=null,breachDistance=Infinity;
+ for(const w of walls)if(w.hp<=0){
+  const pt={x:w.gx,y:w.gy},d=dist(e,pt);
+  if(d<breachDistance){breachDistance=d;breach={w,pt,breach:true}}
+ }
+ if(breach)return breach;
  let best=null,bs=Infinity;
  for(const w of walls){
-  let pt,score;
-  if(w.hp<=0){pt={x:w.gx,y:w.gy};score=dist(e,pt)*.45}
-  else{const c=wallContact(w,e);pt=c;score=c.d*(w.kind==='gate'?.6:w.kind==='bastion'?1.8:1)}
-  if(w.id===e.wallId)score*=.8;
-  if(score<bs){bs=score;best={w,pt,breach:w.hp<=0}}
+  const c=wallContact(w,e),score=c.d*(w.kind==='gate'?.6:w.kind==='bastion'?1.8:1);
+  if(w.id===e.wallId&&score>0){} 
+  if(score<bs){bs=score;best={w,pt:c,breach:false}}
  }
  return best;
 }
@@ -627,7 +633,7 @@ function kill(e){if(e.dead)return;e.dead=true;const pts=e.type==='elephant'?120:
 function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
 // Reserves hold their line: they only react to enemies inside the fort or pressing against its walls.
 function nearestThreat(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0||Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy)>440)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
-function update(dt){if(state!=='playing')return;if(victoryTimer>0){victoryTimer-=dt;if(victoryTimer<=0){victory();return}}elapsed+=dt;hudRefreshTimer+=dt;toastTimer=Math.max(0,toastTimer-dt);if(!toastTimer)ui.toast.classList.remove('show');bannerTimer=Math.max(0,bannerTimer-dt);if(!bannerTimer)ui.banner.classList.remove('show');
+function update(dt){if(state!=='playing')return;const breachOpen=walls.some(w=>w.hp<=0);if(victoryTimer>0){victoryTimer-=dt;if(victoryTimer<=0){victory();return}}elapsed+=dt;hudRefreshTimer+=dt;toastTimer=Math.max(0,toastTimer-dt);if(!toastTimer)ui.toast.classList.remove('show');bannerTimer=Math.max(0,bannerTimer-dt);if(!bannerTimer)ui.banner.classList.remove('show');
 const mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+mobileMove.x,my=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+mobileMove.y;const ml=Math.hypot(mx,my)||1,mobileMoving=Math.hypot(mobileMove.x,mobileMove.y)>.12;player.vx=mx/ml*190;player.vy=my/ml*190;moveLand(player,player.vx*dt,player.vy*dt);pushOutOfWalls(player,12,true);
 const aim=worldPoint(mouse.x,mouse.y);if(mobileAimActive)player.dir=Math.atan2(mobileAim.y,mobileAim.x);else if(mobileMoving)player.dir=Math.atan2(mobileMove.y,mobileMove.x);else if(mouse.x||mouse.y)player.dir=angle(player,aim);if(touchFire&&!mobileAimActive&&!mobileMoving){const target=nearestEnemy(player,1000);if(target)player.dir=angle(player,target);else{const camp=camps.filter(c=>!c.destroyed).sort((a,b)=>dist(player,a)-dist(player,b))[0];if(camp)player.dir=angle(player,camp)}}player.fire=Math.max(0,player.fire-dt);player.sword=Math.max(0,player.sword-dt);player.invuln=Math.max(0,player.invuln-dt);
 if(player.reload>0){player.reload-=dt;if(player.reload<=0){player.ammo=player.maxAmmo;toast('Musket reloaded')}}if((mouse.down||touchFire)&&player.fire<=0&&player.reload<=0){if(player.ammo>0){shoot(player,player.dir,'couto',40,760);player.ammo--;player.fire=.28}else reload()}
@@ -709,7 +715,7 @@ for(const e of enemies){
  // Formations dissolve near combat range so units can siege and fight normally.
  const waveFormation=e.waveFormation;
  if(waveFormation){
-  const formationTarget=dist(e,player)<240?player:{x:WORLD.cx,y:WORLD.cy};
+  const formationTarget=!breachOpen&&dist(e,player)<240?player:{x:WORLD.cx,y:WORLD.cy};
   if(dist(e,formationTarget)>270){
    if(!waveFormation.leader||waveFormation.leader.hp<=0){
     waveFormation.leader=waveFormation.members.find(m=>m.hp>0)||null;
@@ -744,7 +750,7 @@ for(const e of enemies){
  // player when the player comes within close engagement range, then resume
  // the fortress assault once the player moves away.
  const playerDistance=dist(e,player);
- const target=playerDistance<240?player:{x:WORLD.cx,y:WORLD.cy};
+ const target=!breachOpen&&playerDistance<240?player:{x:WORLD.cx,y:WORLD.cy};
  const d=dist(e,target);e.dir=angle(e,target);
  if(e.type==='cannon'){
   // Opening artillery advances from the western staging line, then holds siege range.
