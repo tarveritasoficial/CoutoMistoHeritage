@@ -891,7 +891,7 @@ function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save(
  drawCartRoads(null,1);
  drawRiversAndBridges();
  for(const c of camps)drawEnemyCamp(c);
- drawFarms();drawTrees();drawFortress();ctx.restore()}
+ drawTrees();drawFarms();drawFortress();ctx.restore()}
 function drawRiverPath(r){
  ctx.beginPath();
  for(let i=0;i<r.curves.length;i++){
