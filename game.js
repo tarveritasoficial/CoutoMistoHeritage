@@ -884,6 +884,8 @@ function drawCartRoads(project,scale){
  ctx.lineCap='butt';ctx.lineJoin='miter';ctx.lineDashOffset=0;
 }
 // Small countryside farms, safely separated from all strategic map features.
+// Traditional medieval field clusters: no modern buildings, just irregular crop strips,
+// rough hedges, timber fencing, hay and narrow footpaths.
 const FARM_SITES=[
  {x:1320,y:390,turn:-.12,kind:0},{x:2860,y:390,turn:.16,kind:1},
  {x:1260,y:3170,turn:.18,kind:1},{x:2910,y:3160,turn:-.14,kind:0},
@@ -896,33 +898,72 @@ function farmSiteSafe(f){
  for(const r of RIVER_DEFS)for(const b of r.bridges)if(Math.hypot(f.x-b.x,f.y-b.y)<250)return false;
  return true;
 }
-function drawFarm(f){
- if(!farmSiteSafe(f)||!onScreen(f.x,f.y,190))return;
- ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.turn);
- ctx.fillStyle='rgba(73,57,35,.22)';ctx.beginPath();ctx.ellipse(0,0,154,105,-.08,0,Math.PI*2);ctx.fill();
- ctx.strokeStyle='#59472f';ctx.lineWidth=4;ctx.setLineDash([18,7]);ctx.strokeRect(-145,-92,290,184);ctx.setLineDash([]);
- for(const x of [-145,-70,0,70,145])for(const y of [-92,92]){ctx.fillStyle='#6c5435';ctx.fillRect(x-2,y-5,4,13)}
- // Stone farmhouse with a pitched roof, chimney, door and windows.
- ctx.fillStyle='#b7a17b';ctx.fillRect(-38,-36,76,57);
- ctx.fillStyle='#6a4932';ctx.beginPath();ctx.moveTo(-47,-35);ctx.lineTo(0,-69);ctx.lineTo(48,-35);ctx.closePath();ctx.fill();
- ctx.fillStyle='#4a3528';ctx.fillRect(18,-66,9,23);ctx.fillStyle='#493526';ctx.fillRect(-7,-8,17,29);
- ctx.fillStyle='#d6bd87';ctx.fillRect(-29,-24,13,14);ctx.fillRect(17,-24,13,14);
- // A small timber barn.
- ctx.fillStyle='#8b4d35';ctx.fillRect(66,8,42,34);ctx.fillStyle='#583a2b';
- ctx.beginPath();ctx.moveTo(60,10);ctx.lineTo(87,-10);ctx.lineTo(114,10);ctx.closePath();ctx.fill();
- ctx.fillStyle='#d2b98a';ctx.fillRect(82,22,11,20);
- // Two cultivated plots with visible furrows and crop rows.
- const plots=f.kind===0?[[-112,-22,54,73],[8,53,92,28]]:[[-112,48,76,31],[20,-82,94,25]];
- for(const [x,y,w,h] of plots){
-  ctx.fillStyle='#55432d';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#79613a';ctx.lineWidth=1.5;
-  for(let yy=y+5;yy<y+h;yy+=7){ctx.beginPath();ctx.moveTo(x+3,yy);ctx.lineTo(x+w-3,yy+1);ctx.stroke()}
-  ctx.fillStyle='#718047';for(let xx=x+8;xx<x+w;xx+=13)for(let yy=y+6;yy<y+h;yy+=12){ctx.beginPath();ctx.arc(xx,yy,1.8,0,Math.PI*2);ctx.fill()}
+function drawFieldPlot(x,y,w,h,seed,crop){
+ ctx.save();ctx.translate(x,y);ctx.rotate(seed*.17);
+ // Uneven earth boundary, deliberately hand-shaped rather than a rectangle.
+ ctx.beginPath();ctx.moveTo(-w*.48,-h*.34);ctx.quadraticCurveTo(-w*.2,-h*.58,w*.18,-h*.48);
+ ctx.quadraticCurveTo(w*.58,-h*.42,w*.48,-h*.05);ctx.quadraticCurveTo(w*.58,h*.42,w*.12,h*.48);
+ ctx.quadraticCurveTo(-w*.28,h*.55,-w*.49,h*.19);ctx.quadraticCurveTo(-w*.58,-h*.08,-w*.48,-h*.34);ctx.closePath();
+ ctx.fillStyle='#55452f';ctx.fill();ctx.strokeStyle='#776044';ctx.lineWidth=3;ctx.stroke();
+ ctx.save();ctx.clip();
+ // Furrows follow the field's long axis with subtle irregularity.
+ for(let row=-h*.42;row<=h*.42;row+=Math.max(7,h*.19)){
+  ctx.beginPath();ctx.moveTo(-w*.56,row);
+  ctx.bezierCurveTo(-w*.2,row-3,w*.16,row+4,w*.56,row-1);
+  ctx.strokeStyle='rgba(35,31,23,.48)';ctx.lineWidth=2.4;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-w*.55,row+2.5);ctx.bezierCurveTo(-w*.2,row,w*.16,row+7,w*.55,row+2);
+  ctx.strokeStyle='rgba(190,158,99,.24)';ctx.lineWidth=1.4;ctx.stroke();
  }
- ctx.fillStyle='#b49a58';ctx.beginPath();ctx.ellipse(-76,58,17,12,-.2,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='#554b37';ctx.fillRect(111,-55,22,12);ctx.fillStyle='#638080';ctx.fillRect(114,-52,16,6);
- // Short muddy entrance track, confined to the farmyard.
- ctx.strokeStyle='#796344';ctx.lineWidth=15;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(0,92);ctx.quadraticCurveTo(18,125,55,151);ctx.stroke();
- ctx.strokeStyle='rgba(190,158,105,.45)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-3,91);ctx.quadraticCurveTo(15,124,52,151);ctx.stroke();
+ // Sparse crop tufts, with alternating crop colours and natural gaps.
+ for(let row=-h*.34,ri=0;row<=h*.34;row+=Math.max(11,h*.28),ri++){
+  for(let col=-w*.4,ci=0;col<=w*.4;col+=Math.max(13,w*.13),ci++){
+   if(((ci*7+ri*11+seed*13)|0)%9===0)continue;
+   const px=col+Math.sin(ci*2+seed)*2,py=row+Math.cos(ri+ci+seed)*2;
+   ctx.fillStyle=crop?(ci+ri)%3?'#78864a':'#a18b4f':'#718047';
+   ctx.beginPath();ctx.ellipse(px,py,2.1,3.3,.35,0,Math.PI*2);ctx.fill();
+  }
+ }
+ ctx.restore();ctx.restore();
+}
+function drawRoughFence(points,gateAt=-1){
+ ctx.strokeStyle='#493a29';ctx.lineWidth=3;ctx.lineCap='round';
+ ctx.beginPath();points.forEach((p,i)=>{if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])});ctx.stroke();
+ for(let i=0;i<points.length;i++){
+  if(i===gateAt)continue;
+  const [x,y]=points[i];ctx.fillStyle='#765b39';ctx.save();ctx.translate(x,y);ctx.rotate((i%2?.18:-.12));
+  ctx.fillRect(-2,-5,4,11);ctx.fillStyle='#a08354';ctx.fillRect(-3,-5,6,2);ctx.restore();
+ }
+}
+function drawFarm(f){
+ if(!farmSiteSafe(f)||!onScreen(f.x,f.y,250))return;
+ ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.turn);
+ // Small, separated field parcels with grassy margins: an old patchwork farm landscape.
+ ctx.fillStyle='rgba(55,47,31,.15)';ctx.beginPath();ctx.ellipse(0,0,205,142,-.08,0,Math.PI*2);ctx.fill();
+ drawFieldPlot(-91,-43,108,73,f.kind+1,true);
+ drawFieldPlot(57,-58,118,62,f.kind+3,false);
+ drawFieldPlot(69,48,132,72,f.kind+5,true);
+ drawFieldPlot(-91,65,83,55,f.kind+7,false);
+ // Broken hedge lines and short timber rails divide the plots without boxing them in.
+ ctx.strokeStyle='#405637';ctx.lineWidth=7;ctx.lineCap='round';
+ ctx.beginPath();ctx.moveTo(-171,-92);ctx.quadraticCurveTo(-117,-116,-59,-105);
+ ctx.moveTo(107,-108);ctx.quadraticCurveTo(155,-94,170,-54);
+ ctx.moveTo(-165,108);ctx.quadraticCurveTo(-126,126,-92,117);ctx.stroke();
+ for(let i=0;i<9;i++){
+  const x=-158+i*37,y=-116+Math.sin(i*.8)*5;
+  ctx.fillStyle=i%2?'#536c3d':'#647747';ctx.beginPath();ctx.arc(x,y,5+(i%3),0,Math.PI*2);ctx.fill();
+ }
+ drawRoughFence([[-171,-20],[-178,12],[-167,42]],1);
+ drawRoughFence([[132,82],[165,99],[185,86],[194,58]]);
+ // Two tiny haystacks and a feeding trough, not buildings.
+ for(const [x,y,r] of [[-148,5,10],[145,-17,8]]){
+  ctx.fillStyle='rgba(42,34,24,.2)';ctx.beginPath();ctx.ellipse(x+2,y+5,r+3,r*.55,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#b49a58';ctx.beginPath();ctx.ellipse(x,y,r,r*.72,-.2,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#d1b76f';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(x,y-2,r*.65,Math.PI,Math.PI*2);ctx.stroke();
+ }
+ // A narrow worn footpath joins the plots; it stays within the farm cluster.
+ ctx.strokeStyle='#88734f';ctx.lineWidth=9;ctx.lineCap='round';ctx.beginPath();
+ ctx.moveTo(-16,132);ctx.quadraticCurveTo(6,109,18,84);ctx.quadraticCurveTo(28,58,16,29);ctx.stroke();
+ ctx.strokeStyle='rgba(193,168,119,.36)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-15,130);ctx.quadraticCurveTo(7,108,19,83);ctx.stroke();
  ctx.restore();
 }
 function drawFarms(){for(const f of FARM_SITES)drawFarm(f)}
