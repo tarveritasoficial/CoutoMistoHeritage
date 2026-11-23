@@ -446,14 +446,22 @@ function assaultPlan(e){
  return best;
 }
 function siege(e,dt,rad){
- const plan=assaultPlan(e);e.wallId=plan.w.id;
+ const plan=assaultPlan(e);
+ // A missing wall plan can occur after all defensive structures are destroyed.
+ // Do not let an enemy update dereference an absent plan.
+ if(!plan||!plan.w||!plan.pt){moveEnemyToward(e,{x:WORLD.cx,y:WORLD.cy},(e.type==='elephant'?42:e.type==='cavalry'?105:82)*dt);return}
+ e.wallId=plan.w.id;
  e.dir=Math.atan2(plan.pt.y-e.y,plan.pt.x-e.x);
  const speed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='spearman'?68:82;
  const move=()=>moveEnemyToward(e,plan.pt,speed*dt);
  if(plan.breach){move();return}
  const c=wallContact(plan.w,e);
  if(c.sep>rad+8)move();
- else if(e.attack<=0){damageWall(plan.w,SIEGE_DMG[e.type][plan.w.kind],c.x,c.y);e.attack=e.type==='swordsman'?.78:1.05}
+ else if(e.attack<=0){
+  const wallDamage=(SIEGE_DMG[e.type]&&SIEGE_DMG[e.type][plan.w.kind])??(e.type==='spearman'?5:e.type==='archer'?1:e.type==='rifleman'?2:e.type==='cannon'?18:4);
+  damageWall(plan.w,wallDamage,c.x,c.y);
+  e.attack=e.type==='swordsman'?.78:1.05;
+ }
 }
 function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){return {id:++idCounter,x,y,vx:0,vy:0,dir:0,hp:type==='elephant'?210:elite?145:type==='cavalry'?85:type==='spearman'?78:type==='archer'?44:55,max:type==='elephant'?210:elite?145:type==='cavalry'?85:type==='spearman'?78:type==='archer'?44:55,faction,type,friendly,elite,attack:rand(.2,1),reload:rand(.2,1.5),flash:0,dead:false,charge:0}}
 function reset(){
