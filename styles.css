@@ -75,7 +75,7 @@
 .trailer-brand span{color:#e2c477}.trailer-brand small{font:600 9px Inter,Arial,sans-serif;letter-spacing:3px;color:#eee1c2}
 .trailer-controls{position:absolute;right:clamp(18px,5vw,60px);top:clamp(22px,5vh,48px);display:flex;gap:9px}
 .trailer-btn{padding:11px 15px;background:#101a15c9;border:1px solid #d4b36a99;color:#f0d38c;font-size:10px;font-weight:700;letter-spacing:1.4px;backdrop-filter:blur(5px)}
-.trailer-btn:hover{background:#d4b36a;color:#17251d}.trailer-skip{background:#d4b36a;color:#17251d}
+.trailer-btn:hover{background:#d4b36a;color:#17251d}.trailer-skip{background:#d4b36a;color:#17251d}.trailer-play{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);min-width:170px;padding:17px 24px;background:#d4b36a;color:#17251d;border:1px solid #f2d894;font-size:13px;box-shadow:0 8px 36px #0009}.trailer-play:hover{background:#f0d38c;color:#17251d}
 .trailer-caption{position:absolute;bottom:clamp(24px,6vh,60px);left:20px;right:20px;text-align:center;font:700 clamp(10px,1.5vw,14px) Cinzel,serif;letter-spacing:clamp(2px,.6vw,5px);color:#f1dfb2;text-shadow:0 2px 12px #000}
 @media(max-width:600px){.trailer-controls{top:auto;bottom:75px;left:0;right:0;justify-content:center}.trailer-btn{padding:12px 13px}.trailer-brand{top:18px;left:18px}.trailer-caption{bottom:25px;font-size:9px}}
 
