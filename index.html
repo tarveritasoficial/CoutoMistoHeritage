@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#17251d">
   <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
   <title>Couto Misto Heritage</title>
-  <link rel="stylesheet" href="styles.css?v=20261123-terrain-polish1">
+  <link rel="stylesheet" href="styles.css?v=20261123-polish2">
 </head>
 <body>
   <main id="game-shell">
     <header class="topbar">
       <div class="brand"><span class="crest">✦</span><div><strong>COUTO MISTO</strong><small>HERITAGE · FORTRESS DEFENCE</small></div></div>
       <div class="top-stats"><span>WAVE <b id="wave">0</b></span><span>SCORE <b id="score">0</b></span><span>GUARDS <b id="guards">8/8</b></span><span>WALLS <b id="walls">20/20</b></span><span>CAMPS <b id="camps">4/4</b></span></div>
-      <button id="pause-btn" class="small-btn" aria-label="Pause">Ⅱ</button>
+      <button id="pause-btn" class="small-btn" aria-label="Pause" title="Pause (Esc)">Ⅱ</button>
     </header>
     <section id="stage">
       <div id="zoom-controls" class="zoom-controls" aria-label="Map zoom controls">
@@ -22,6 +22,7 @@
         <button id="zoom-reset" type="button" aria-label="Reset zoom" title="Reset zoom">⌖</button>
       </div>
       <canvas id="game" aria-label="Couto Misto fortress defense game"></canvas>
+      <div id="vignette" class="vignette" aria-hidden="true"></div>
       <div id="loading" class="overlay"><div class="loading-card"><div class="loader-crest">✦</div><h1>COUTO MISTO HERITAGE</h1><p>Preparing the fortress…</p><div class="loading-track"><i></i></div></div></div>
       <section id="trailer-screen" class="trailer-screen hidden" aria-label="Game trailer">
         <video id="trailer-video" class="trailer-video" autoplay muted playsinline preload="auto">
@@ -101,7 +102,7 @@
       <div id="hud" class="hud hidden">
         <div id="camp-objectives" class="camp-objectives"><div class="camp-objectives-heading"><span>ENEMY OBJECTIVES</span><b id="camp-objective-count">4 / 4 REMAINING</b></div><div class="camp-objective-list"><div class="camp-objective-row" id="camp-objective-0"><span class="camp-objective-dot france"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>FRENCH CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div><div class="camp-objective-row" id="camp-objective-1"><span class="camp-objective-dot spain"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>SPANISH CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div><div class="camp-objective-row" id="camp-objective-2"><span class="camp-objective-dot portugal"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>PORTUGUESE CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div><div class="camp-objective-row" id="camp-objective-3"><span class="camp-objective-dot england"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>ENGLISH CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div></div></div>
         <div class="hud-left"><div class="meter"><span>HEALTH</span><div class="bar"><i id="health-bar"></i></div><b id="health-text">100</b></div><div class="meter"><span>FORTRESS</span><div class="bar fortress"><i id="fort-bar"></i></div><b id="fort-text">100%</b></div></div>
-        <div class="hud-right"><div class="ammo"><span>MUSKET</span><b id="ammo">6 / 6</b><small id="reload-state">READY</small></div><div class="nation-legend"><span class="dot pt"></span> PT <span class="dot es"></span> ES <span class="dot fr"></span> FR <span class="dot en"></span> EN</div></div>
+        <div class="hud-right"><div class="ammo"><span>MUSKET</span><b id="ammo">6 / 6</b><small id="reload-state">READY</small><div class="reload-track"><i id="reload-bar"></i></div></div><div class="nation-legend"><span class="dot pt"></span> PT <span class="dot es"></span> ES <span class="dot fr"></span> FR <span class="dot en"></span> EN</div></div>
         <div id="wave-banner" class="wave-banner"></div>
       </div>
       <div id="mobile-controls" class="mobile-controls hidden">
@@ -110,8 +111,8 @@
       </div>
       <div id="toast" class="toast"></div>
     </section>
-    <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD</span></footer>
+    <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD · E CANNON</span></footer>
   </main>
-  <script src="game.js?v=20261123-introfix1"></script>
+  <script src="game.js?v=20261123-polish2"></script>
 </body>
 </html>

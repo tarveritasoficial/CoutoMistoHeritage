@@ -12,7 +12,7 @@ const FACTIONS = {
   england:{name:'England',a:'#b63c3c',b:'#eee9dc',dark:'#702323'}
 };
 const keys = Object.create(null), mouse = {x:0,y:0,down:false};
-let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], defenders=[], villagers=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0;
+let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], defenders=[], villagers=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0, floaters=[];
 const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
 window.addEventListener('resize',resize); resize();
@@ -106,6 +106,9 @@ function riverCurvePoints(r){
  return out;
 }
 const RIVER_LINES=RIVER_DEFS.map(r=>riverCurvePoints(r));
+// Snap every bridge onto the true river centreline, perpendicular to the current. Some decks sat up to
+// 20px off the water, leaving a gap between the bank and the deck that units could not step across.
+RIVER_DEFS.forEach((r,i)=>r.bridges.forEach(b=>{const p=riverNearestPoint(RIVER_LINES[i],b.x,b.y);if(p){b.x=Math.round(p.x);b.y=Math.round(p.y);b.angle=Math.atan2(p.ty,p.tx)}}));
 function riverYAtX(points,x){
  let best=points[0],bd=Infinity;
  for(let i=1;i<points.length;i++){
@@ -145,34 +148,6 @@ function riverBlocked(x,y){
  }
  return false;
 }
-function riverRouteTarget(from,to){
- for(let i=0;i<RIVER_DEFS.length;i++){
-  const r=RIVER_DEFS[i],a=riverNearestPoint(RIVER_LINES[i],from.x,from.y),b=riverNearestPoint(RIVER_LINES[i],to.x,to.y);
-  if(!a||!b)continue;
-  const crossA=a.tx*(from.y-a.y)-a.ty*(from.x-a.x),crossB=b.tx*(to.y-b.y)-b.ty*(to.x-b.x);
-  const currentBridge=riverBridgeAt(from.x,from.y,r);
-  if(currentBridge){
-   // The exit waypoint is deliberately beyond the deck AND outside the
-   // bridge collision rectangle, so the AI can leave bridge mode.
-   const nx=-Math.sin(currentBridge.angle||0),ny=Math.cos(currentBridge.angle||0);
-   const side=Math.sign(crossA)||1;
-   return {x:currentBridge.x-nx*side*112,y:currentBridge.y-ny*side*112};
-  }
-  if(crossA*crossB>=0)continue;
-  let bridge=r.bridges[0],best=Infinity;
-  for(const candidate of r.bridges){
-   const score=dist(from,candidate)+dist(candidate,to);
-   if(score<best){best=score;bridge=candidate}
-  }
-  const nx=-Math.sin(bridge.angle||0),ny=Math.cos(bridge.angle||0);
-  const side=Math.sign(crossA)||1;
-  const entry={x:bridge.x+nx*side*100,y:bridge.y+ny*side*100};
-  // Approach the near bank, then the deck centre. The far-bank waypoint
-  // above is outside the deck corridor, preventing a waypoint deadlock.
-  return dist(from,entry)>18?entry:bridge;
- }
- return to;
-}
 function moveLand(u,dx,dy){
  const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/5)),sx=dx/steps,sy=dy/steps;
  for(let i=0;i<steps;i++){
@@ -184,59 +159,104 @@ function moveLand(u,dx,dy){
   if(!riverBlocked(u.x,ny))u.y=ny;
  }
 }
-// Enemy-only bridge traversal. Units commit to a bridge, align on the near bank,
-// cross straight along the deck, and resume normal pathing after reaching dry land.
-function enemyBridgeContains(x,y,b,radius=0){
- const a=b.angle||0,dx=x-b.x,dy=y-b.y;
- const lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);
- return Math.abs(lx)<=40+radius&&Math.abs(ly)<=82+radius;
+// ---------- Navigation: the river can only be crossed on a bridge ----------
+// A coarse grid is built once from the exact river collision test. Cells that touch water (or
+// the bank margin) are closed, bridge decks stay open, and units use A* to walk around the
+// water and through the nearest bridge. Replaces the old single-sign "which side am I on"
+// guess, which froze units whenever the straight line crossed the C-shaped river twice.
+const NAV={cell:24,cols:Math.ceil(WORLD.w/24),rows:Math.ceil(WORLD.h/24)};
+const navBlocked=new Uint8Array(NAV.cols*NAV.rows);
+(function buildNav(){
+ // centre, edge midpoints and corners: a free cell is entirely free of water
+ const probes=[[0,0],[12,0],[-12,0],[0,12],[0,-12],[12,12],[-12,12],[12,-12],[-12,-12]];
+ // Only cells near the river need the (expensive) exact test: flag them from the river polyline first.
+ const near=new Uint8Array(NAV.cols*NAV.rows);
+ for(const pts of RIVER_LINES)for(const q of pts){
+  const c0=Math.max(0,Math.floor((q.x-96)/NAV.cell)),c1=Math.min(NAV.cols-1,Math.floor((q.x+96)/NAV.cell));
+  const r0=Math.max(0,Math.floor((q.y-96)/NAV.cell)),r1=Math.min(NAV.rows-1,Math.floor((q.y+96)/NAV.cell));
+  for(let ry=r0;ry<=r1;ry++)for(let rx=c0;rx<=c1;rx++)near[ry*NAV.cols+rx]=1;
+ }
+ for(let cy=0;cy<NAV.rows;cy++)for(let cx=0;cx<NAV.cols;cx++){
+  if(!near[cy*NAV.cols+cx])continue;
+  const x=(cx+.5)*NAV.cell,y=(cy+.5)*NAV.cell;
+  if(riverDistance(x,y)>110)continue;
+  for(const pr of probes)if(riverBlocked(x+pr[0],y+pr[1])){navBlocked[cy*NAV.cols+cx]=1;break}
+ }
+})();
+function navAt(x,y){const cx=clamp(Math.floor(x/NAV.cell),0,NAV.cols-1),cy=clamp(Math.floor(y/NAV.cell),0,NAV.rows-1);return navBlocked[cy*NAV.cols+cx]===1}
+// true when the straight segment stays on open ground (samples within 14px of the start are ignored
+// so a unit hugging the bank can always walk away from it)
+function navClear(x0,y0,x1,y1){
+ const dx=x1-x0,dy=y1-y0,len=Math.hypot(dx,dy);if(len<1)return true;
+ const n=Math.ceil(len/10);
+ for(let i=1;i<=n;i++){const t=i/n;if(t*len<14&&i<n)continue;if(navAt(x0+dx*t,y0+dy*t))return false}
+ return true;
 }
-function enemyMoveBridge(e,target,len){
- let route=e.bridgeRoute;
- if(route){
-  const b=route.bridge,radius=unitRadius(e);
-  let goal=route.stage==='entry'?route.entry:route.exit;
-  if(dist(e,goal)<=Math.max(7,radius*.45)){
-   if(route.stage==='entry'){route.stage='cross';goal=route.exit}
-   else if(route.stage==='cross'){route.stage='exit';goal=route.exit}
-   else {e.bridgeRoute=null;return false}
+function navFreeCell(x,y){
+ const C=NAV.cols,R=NAV.rows,cx=clamp(Math.floor(x/NAV.cell),0,C-1),cy=clamp(Math.floor(y/NAV.cell),0,R-1);
+ if(!navBlocked[cy*C+cx])return cy*C+cx;
+ for(let r=1;r<=10;r++){
+  let best=-1,bd=Infinity;
+  for(let oy=-r;oy<=r;oy++)for(let ox=-r;ox<=r;ox++){
+   if(Math.max(Math.abs(ox),Math.abs(oy))!==r)continue;
+   const nx=cx+ox,ny=cy+oy;if(nx<0||ny<0||nx>=C||ny>=R||navBlocked[ny*C+nx])continue;
+   const d=ox*ox+oy*oy;if(d<bd){bd=d;best=ny*C+nx}
   }
-  const d=dist(e,goal),step=Math.min(len,d),a=angle(e,goal),steps=Math.max(1,Math.ceil(step/3));
-  for(let i=0;i<steps;i++){
-   const nx=e.x+Math.cos(a)*step/steps,ny=e.y+Math.sin(a)*step/steps;
-   const onDeck=enemyBridgeContains(nx,ny,b,radius+4);
-   if(riverBlocked(nx,ny)&&!onDeck)break;
-   e.x=nx;e.y=ny;
+  if(best>=0)return best;
+ }
+ return -1;
+}
+const navSeen=new Int32Array(NAV.cols*NAV.rows),navClosed=new Int32Array(NAV.cols*NAV.rows),navPrev=new Int32Array(NAV.cols*NAV.rows),navG=new Float32Array(NAV.cols*NAV.rows);
+let navStamp=0;
+function navPath(sx,sy,gx,gy){
+ const s=navFreeCell(sx,sy),g=navFreeCell(gx,gy);if(s<0||g<0)return null;
+ const C=NAV.cols,R=NAV.rows,tx=g%C,ty=(g/C)|0,heap=[];
+ const h=i=>{const dx=Math.abs(i%C-tx),dy=Math.abs(((i/C)|0)-ty);return dx+dy-.5858*Math.min(dx,dy)};
+ const push=(i,f)=>{heap.push([f,i]);let k=heap.length-1;while(k>0){const p=(k-1)>>1;if(heap[p][0]<=heap[k][0])break;const t=heap[p];heap[p]=heap[k];heap[k]=t;k=p}};
+ const pop=()=>{const top=heap[0],last=heap.pop();if(heap.length){heap[0]=last;let k=0;for(;;){const l=2*k+1,r=l+1;let m=k;if(l<heap.length&&heap[l][0]<heap[m][0])m=l;if(r<heap.length&&heap[r][0]<heap[m][0])m=r;if(m===k)break;const t=heap[m];heap[m]=heap[k];heap[k]=t;k=m}}return top};
+ navStamp++;navSeen[s]=navStamp;navG[s]=0;navPrev[s]=-1;push(s,h(s));
+ let found=false;
+ while(heap.length){
+  const i=pop()[1];if(navClosed[i]===navStamp)continue;navClosed[i]=navStamp;
+  if(i===g){found=true;break}
+  const cx=i%C,cy=(i/C)|0;
+  for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+   if(!ox&&!oy)continue;const nx=cx+ox,ny=cy+oy;if(nx<0||ny<0||nx>=C||ny>=R)continue;
+   const j=ny*C+nx;if(navBlocked[j]||navClosed[j]===navStamp)continue;
+   if(ox&&oy&&(navBlocked[cy*C+nx]||navBlocked[ny*C+cx]))continue; // never cut a corner of the water
+   const ng=navG[i]+(ox&&oy?1.4142:1);
+   if(navSeen[j]!==navStamp||ng<navG[j]){navSeen[j]=navStamp;navG[j]=ng;navPrev[j]=i;push(j,ng+h(j))}
   }
-  return true;
  }
- for(let i=0;i<RIVER_DEFS.length;i++){
-  const river=RIVER_DEFS[i],from=riverNearestPoint(RIVER_LINES[i],e.x,e.y),to=riverNearestPoint(RIVER_LINES[i],target.x,target.y);
-  if(!from||!to)continue;
-  const sideA=from.tx*(e.y-from.y)-from.ty*(e.x-from.x);
-  const sideB=to.tx*(target.y-to.y)-to.ty*(target.x-to.x);
-  if(sideA*sideB>=0||Math.abs(sideA)<1||Math.abs(sideB)<1)continue;
-  let bridge=river.bridges[0],best=Infinity;
-  for(const candidate of river.bridges){const score=dist(e,candidate)+dist(candidate,target);if(score<best){best=score;bridge=candidate}}
-  const a=bridge.angle||0,nx=-Math.sin(a),ny=Math.cos(a),side=Math.sign(sideA)||1;
-  e.bridgeRoute={bridge,entry:{x:bridge.x+nx*side*88,y:bridge.y+ny*side*88},exit:{x:bridge.x-nx*side*88,y:bridge.y-ny*side*88},stage:'entry'};
-  return enemyMoveBridge(e,target,len);
+ if(!found)return null;
+ const pts=[];for(let i=g;i>=0;i=navPrev[i])pts.push({x:(i%C+.5)*NAV.cell,y:(((i/C)|0)+.5)*NAV.cell});
+ pts.reverse();pts.shift();
+ return pts;
+}
+// One movement step toward p. Walks straight when the way is clear, otherwise follows an A* route
+// around the water (through a bridge). Returns the heading used.
+function navMove(u,p,len){
+ let heading=angle(u,p),goal=p;
+ const forced=u.navForce>0; // set by stuck detection: follow the A* route even if the straight line looks clear
+ if(!forced&&navClear(u.x,u.y,p.x,p.y))u.nav=null;
+ else{
+  let n=u.nav;
+  if(!n||dist(n.goal,p)>110||n.travel>150){n=u.nav={goal:{x:p.x,y:p.y},path:navPath(u.x,u.y,p.x,p.y)||[],travel:0}}
+  n.travel+=len;if(forced)u.navForce-=len;
+  while(n.path.length&&dist(u,n.path[0])<16)n.path.shift();
+  while(n.path.length>1&&navClear(u.x,u.y,n.path[1].x,n.path[1].y))n.path.shift();
+  if(n.path.length)goal=n.path[0];
+  heading=angle(u,goal);
  }
- return false;
+ const ox=u.x,oy=u.y,step=Math.min(len,dist(u,goal));
+ moveLand(u,Math.cos(heading)*step,Math.sin(heading)*step);
+ // The water slid the unit along the bank instead of letting it advance: switch to the A* route.
+ if(step>.3){const moved=Math.hypot(u.x-ox,u.y-oy);if(moved<step*.35){if((u.stuck=(u.stuck||0)+1)>5){u.navForce=220;u.nav=null;u.stuck=0}}else u.stuck=0}
+ return heading;
 }
-function moveEnemyToward(e,p,len){
- if(enemyMoveBridge(e,p,len)){
-  const route=e.bridgeRoute;
-  e.dir=angle(e,route?(route.stage==='entry'?route.entry:route.exit):p);
-  return e.dir;
- }
- return moveToward(e,p,len);
-}
-function moveToward(u,p,len){
- const goal=riverRouteTarget(u,p),d=dist(u,goal),a=angle(u,goal),step=Math.min(len,d);
- moveLand(u,Math.cos(a)*step,Math.sin(a)*step);return a;
-}
-function stepTo(u,p,len){return moveToward(u,p,len)}
+function moveEnemyToward(e,p,len){const h=navMove(e,p,len);if(e.nav)e.dir=h;return h}
+function moveToward(u,p,len){return navMove(u,p,len)}
+function stepTo(u,p,len){return navMove(u,p,len)}
 // Friendly troops cross the wall line through a gate (or a breach). Returns the next point to walk to.
 function routeTo(from,to){
  const fi=behindWalls(from),ti=behindWalls(to);
@@ -270,7 +290,7 @@ function damageCamp(c,amount){
  c.hp=Math.max(0,c.hp-amount);c.flash=.14;
  for(let i=0;i<3;i++)particles.push({x:c.x+rand(-40,40),y:c.y+rand(-40,40),vx:rand(-50,50),vy:rand(-70,-10),life:rand(.3,.7),max:.7,color:i%2?'#7d6a4a':'#c9b88a',r:rand(2,4)});
  if(c.hp>0)return;
- c.destroyed=true;c.destroyedAt=elapsed;score+=500;
+ c.destroyed=true;c.destroyedAt=elapsed;score+=500;floaters.push({x:c.x,y:c.y-34,text:'+500 · '+c.name+' DESTROYED',life:2.4,max:2.4,big:true});
  for(let i=0;i<46;i++)particles.push({x:c.x+rand(-70,70),y:c.y+rand(-70,70),vx:rand(-120,120),vy:rand(-150,-10),life:rand(.6,1.6),max:1.6,color:i%3?'#d9803a':'#4a4338',r:rand(2,7)});
  for(const e of enemies)if(e.camp===c&&e.hp>0)e.hp=0;
  const left=camps.filter(k=>!k.destroyed).length;
@@ -344,7 +364,7 @@ function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){ret
 function reset(){
  camera.x=clamp(WORLD.cx,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(WORLD.cy,vh/(2*zoom),WORLD.h-vh/(2*zoom));
  wave=0;score=0;fortress=100;elapsed=0;spawnClock=0;waveGap=2;
- enemies=[];bullets=[];particles=[];villagers=[];guards=[];escorts=[];defenders=[];idCounter=0;
+ enemies=[];bullets=[];particles=[];floaters=[];villagers=[];guards=[];escorts=[];defenders=[];idCounter=0;
  const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
  const activeCount=clamp(Math.floor(Number($('active-count').value)||0),0,40);
@@ -366,7 +386,7 @@ function reset(){
  ui.wave.textContent='0';ui.score.textContent='0';updateHud()
 }
 function updateCampObjectives(){const remaining=camps.filter(c=>!c.destroyed).length;const count=$('camp-objective-count');if(count)count.textContent=remaining+' / '+camps.length+' REMAINING';for(const c of camps){const row=$('camp-objective-'+c.id);if(!row)continue;const ratio=c.destroyed?0:clamp(c.hp/c.max,0,1);row.classList.toggle('destroyed',c.destroyed);const bar=row.querySelector('.camp-objective-fill');if(bar)bar.style.width=(ratio*100)+'%';const value=row.querySelector('.camp-objective-value');if(value)value.textContent=c.destroyed?'DESTROYED':Math.ceil(ratio*100)+'%';}}
-function updateHud(){updateCampObjectives();const playerRatio=clamp(player.hp/player.max,0,1),fortRatio=clamp(fortress/100,0,1);ui.health.style.width=(playerRatio*100)+'%';ui.health.style.background=playerRatio>.55?'#75ad69':playerRatio>.25?'#d1b46c':'#c64d3d';ui.healthText.textContent=Math.ceil(player.hp)+'%';ui.fort.style.width=(fortRatio*100)+'%';ui.fort.style.background=fortRatio>.55?'#d1b46c':fortRatio>.25?'#df9148':'#c64d3d';ui.fortText.textContent=Math.ceil(fortress)+'%';ui.ammo.textContent=player.ammo+' / '+player.maxAmmo;ui.reload.textContent=player.reload>0?'RELOADING':'READY';ui.guards.textContent=(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length);ui.wave.textContent=wave;ui.score.textContent=score;const up=walls.filter(w=>w.hp>0).length;ui.walls.textContent=up+'/'+walls.length;ui.walls.style.color=up<walls.length?'#f0a58f':'';const cl=camps.filter(c=>!c.destroyed).length;ui.camps.textContent=cl+'/'+camps.length}
+function updateHud(){updateCampObjectives();const playerRatio=clamp(player.hp/player.max,0,1),fortRatio=clamp(fortress/100,0,1);ui.health.style.width=(playerRatio*100)+'%';ui.health.style.background=playerRatio>.55?'#75ad69':playerRatio>.25?'#d1b46c':'#c64d3d';ui.healthText.textContent=Math.ceil(player.hp)+'%';ui.fort.style.width=(fortRatio*100)+'%';ui.fort.style.background=fortRatio>.55?'#d1b46c':fortRatio>.25?'#df9148':'#c64d3d';ui.fortText.textContent=Math.ceil(fortress)+'%';ui.ammo.textContent=player.ammo+' / '+player.maxAmmo;ui.reload.textContent=player.reload>0?'RELOADING':'READY';const rb=$('reload-bar');if(rb)rb.style.width=(player.reload>0?clamp(1-player.reload/1.25,0,1)*100:0)+'%';ui.guards.textContent=(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length);ui.wave.textContent=wave;ui.score.textContent=score;const up=walls.filter(w=>w.hp>0).length;ui.walls.textContent=up+'/'+walls.length;ui.walls.style.color=up<walls.length?'#f0a58f':'';const cl=camps.filter(c=>!c.destroyed).length;ui.camps.textContent=cl+'/'+camps.length}
 function start(){$('victory-video').pause();$('victory-video').currentTime=0;reset();state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');ui.mobile.classList.remove('hidden');banner('DEFEND THE STAR FORTRESS');toast('The gates open for you: leave the fort and destroy the enemy camps');last=performance.now()}
 function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove('hidden')}else if(state==='paused'){state='playing';ui.pause.classList.add('hidden');last=performance.now()}}function mainMenu(){$('victory-video').pause();$('victory-video').currentTime=0;state='menu';ui.menu.classList.remove('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');last=performance.now()}
 function gameOver(){state='over';$('over-eyebrow').textContent='THE FORTRESS HAS FALLEN';$('over-title').textContent='DEFEAT';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent='Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length)}
@@ -386,7 +406,7 @@ function spawnWave(){
  if(wave>=4&&wave%2===0){const camp=alive[Math.floor(rand(0,alive.length))],a=Math.atan2(camp.y-WORLD.cy,camp.x-WORLD.cx),cr=rand(580,640),e=makeSoldier(WORLD.cx+Math.cos(a)*cr+rand(-70,70),WORLD.cy+Math.sin(a)*cr+rand(-70,70),camp.faction,'cannon',false);e.hp=130;e.max=130;enemies.push(e)}
  spawnClock=0;waveActive=true;
 }
-function kill(e){if(e.dead)return;e.dead=true;score+=e.type==='elephant'?120:e.type==='cavalry'?55:25;for(let i=0;i<9;i++)particles.push({x:e.x,y:e.y,vx:rand(-80,80),vy:rand(-80,80),life:rand(.25,.65),max:.65,color:i%2?'#b8a27a':'#6e3d32',r:rand(2,5)})}
+function kill(e){if(e.dead)return;e.dead=true;const pts=e.type==='elephant'?120:e.type==='cavalry'?55:25;score+=pts;floaters.push({x:e.x,y:e.y-12,text:'+'+pts,life:1,max:1});for(let i=0;i<9;i++)particles.push({x:e.x,y:e.y,vx:rand(-80,80),vy:rand(-80,80),life:rand(.25,.65),max:.65,color:i%2?'#b8a27a':'#6e3d32',r:rand(2,5)})}
 function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
 // Reserves hold their line: they only react to enemies inside the fort or pressing against its walls.
 function nearestThreat(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0||Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy)>440)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
@@ -459,8 +479,9 @@ for(const e of enemies)if(e.hp>0&&e.type!=='cannon')pushOutOfWalls(e,unitRadius(
 for(const g of escorts)if(g.hp>0)pushOutOfWalls(g,9,true);
 for(const d of defenders)if(d.hp>0)pushOutOfWalls(d,9,true);
 for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
-for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(riverBlocked(b.x,b.y)){b.life=0;continue}if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
+for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
+for(const f of floaters){f.y-=26*dt;f.life-=dt}floaters=floaters.filter(f=>f.life>0);
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(enemies.some(e=>dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
 if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));updateHud()}
 function eliteDamage(){return 24}
@@ -572,8 +593,10 @@ function drawRiversAndBridges(){
    if(!onScreen(x,cy,90))continue;
    ctx.strokeStyle=k%2?'rgba(190,220,207,.38)':'rgba(18,53,61,.32)';
    ctx.lineWidth=k%3===0?3:1.5;ctx.beginPath();
-   ctx.moveTo(x-15,cy+Math.sin(k*1.7)*24);ctx.quadraticCurveTo(x,cy+Math.cos(k*1.2)*18,x+20,cy+Math.sin(k*.8)*22);ctx.stroke();
+   const drift=Math.sin(performance.now()/1000*.9+k*1.3)*7;ctx.globalAlpha=.7+.3*Math.sin(performance.now()/1000*1.6+k);
+   ctx.moveTo(x-15+drift,cy+Math.sin(k*1.7)*24);ctx.quadraticCurveTo(x,cy+Math.cos(k*1.2)*18,x+20,cy+Math.sin(k*.8)*22);ctx.stroke();
   }
+  ctx.globalAlpha=1;
   // Reeds and stones along the banks, kept clear of bridge decks.
   for(let k=0;k<24;k++){
    const x=110+k*183+(k%2)*31,cy=riverYAtX(RIVER_LINES[RIVER_DEFS.indexOf(r)],x);
@@ -728,12 +751,16 @@ for(const v of villagers){ctx.fillStyle='#d1c19c';ctx.beginPath();ctx.arc(v.x,v.
 for(const g of guards){if(g.hp>0)drawCharacter(g)}for(const g of escorts){if(g.hp>0)drawCharacter(g)}for(const d of defenders){if(d.hp>0)drawCharacter(d)}for(const e of enemies)if(e.hp>0)drawCharacter(e);drawCharacter(player,true);
 for(const b of bullets){ctx.fillStyle=b.faction==='enemy'?'#e76d43':'#f4df9e';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()}
 for(const p of particles){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
+// floating score popups
+ctx.textAlign='center';for(const f of floaters){ctx.globalAlpha=clamp(f.life/f.max*1.8,0,1);ctx.font=(f.big?'bold 15px':'bold 12px')+' Inter,Arial,sans-serif';ctx.lineWidth=3;ctx.strokeStyle='#101a15';ctx.fillStyle=f.big?'#f0d38c':'#f3e6c5';ctx.strokeText(f.text,f.x,f.y);ctx.fillText(f.text,f.x,f.y)}ctx.globalAlpha=1;ctx.textAlign='left';
 if(player.sword>0){const s={x:player.x,y:player.y};ctx.strokeStyle='#f7e2a4';ctx.lineWidth=4;ctx.beginPath();ctx.arc(s.x,s.y,38,player.dir-.8,player.dir+.8);ctx.stroke()}
 ctx.restore();if(state==='playing'||state==='paused'){drawCampMarkers();drawOffscreenMarkers();drawMinimap()}if(state==='menu')drawMenuPreview()}
 // arrows at the screen edge point to attackers that are outside the camera view
 function drawCampMarkers(){
  const margin=32,top=116,bottom=vh-30,cx=vw/2,cy=(top+bottom)/2;
- for(const c of camps){if(c.destroyed)continue;const sp=screenPoint(c),sx=sp.x,sy=sp.y;if(sx>=margin&&sx<=vw-margin&&sy>=top&&sy<=bottom)continue;const dx=sx-cx,dy=sy-cy,hw=Math.max(1,vw/2-margin),hh=Math.max(1,(bottom-top)/2),k=Math.min(hw/Math.abs(dx||1e-6),hh/Math.abs(dy||1e-6)),px=cx+dx*k,py=cy+dy*k,a=Math.atan2(dy,dx),f=FACTIONS[c.faction];
+ // keep markers clear of the minimap (top-left) so their labels are never hidden behind it
+ const mmW=Math.round(clamp(vw*.17,112,190)),mmR=12+mmW+8,mmB=88+Math.round(mmW*WORLD.h/WORLD.w)+10;
+ for(const c of camps){if(c.destroyed)continue;const sp=screenPoint(c),sx=sp.x,sy=sp.y;if(sx>=margin&&sx<=vw-margin&&sy>=top&&sy<=bottom)continue;const dx=sx-cx,dy=sy-cy,hw=Math.max(1,vw/2-margin),hh=Math.max(1,(bottom-top)/2),k=Math.min(hw/Math.abs(dx||1e-6),hh/Math.abs(dy||1e-6)),px0=cx+dx*k,py=cy+dy*k,px=(px0<mmR+52&&py<mmB)?Math.min(mmR+52,vw-margin):px0,a=Math.atan2(dy,dx),f=FACTIONS[c.faction];
  ctx.save();ctx.translate(px,py);ctx.rotate(a);ctx.fillStyle=f.a;ctx.strokeStyle='#f3e6c5';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(-7,-7);ctx.lineTo(-4,0);ctx.lineTo(-7,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
  const pct=Math.ceil(c.hp/c.max*100);ctx.font='bold 9px Inter';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='#101a15';ctx.fillStyle='#f3e6c5';const label=c.name.replace(' CAMP','');ctx.strokeText(label+' · '+pct+'%',px,py-12);ctx.fillText(label+' · '+pct+'%',px,py-12);ctx.textAlign='left';
  }
@@ -815,7 +842,8 @@ function drawMinimap(){
  ctx.restore();
 }
 function drawMenuPreview(){ctx.save();ctx.globalAlpha=.18;ctx.translate(vw/2-camera.x*zoom,vh/2-camera.y*zoom);ctx.scale(zoom,zoom);ctx.strokeStyle='#d4b36a';ctx.lineWidth=3;pathPoly(starPoints(WORLD.cx,WORLD.cy,500,395));ctx.stroke();ctx.restore()}
-function loop(now){const dt=Math.min((now-last)/1000||0,.033);last=now;if(state==='playing')update(dt);draw();requestAnimationFrame(loop)}
+const vignetteEl=$('vignette');
+function loop(now){const dt=Math.min((now-last)/1000||0,.033);last=now;if(state==='playing')update(dt);draw();if(vignetteEl)vignetteEl.classList.toggle('hurt',state==='playing'&&!!player&&player.hp>0&&player.hp/player.max<.3);requestAnimationFrame(loop)}
 function canvasPos(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
 function setZoom(next){const oldZoom=zoom;zoom=clamp(next,.65,1.8);if(zoom===oldZoom)return;camera.x=clamp(camera.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(camera.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));}
 $('zoom-in').addEventListener('click',()=>setZoom(zoom*1.2));
@@ -870,9 +898,17 @@ updateDeployment();
 $('start-btn').addEventListener('click',start);$('menu-btn').addEventListener('click',mainMenu);$('over-menu-btn').addEventListener('click',mainMenu);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',start);$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));
 $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();touchFire=true});$('touch-fire').addEventListener('pointerup',()=>touchFire=false);$('touch-sword').addEventListener('pointerdown',e=>{e.preventDefault();sword()});$('touch-reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
 const joy=$('joystick'),stick=$('stick');let joyId=null;joy.addEventListener('pointerdown',e=>{joyId=e.pointerId;joy.setPointerCapture(joyId);moveJoy(e)});joy.addEventListener('pointermove',e=>{if(e.pointerId===joyId)moveJoy(e)});function moveJoy(e){const r=joy.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),len=Math.hypot(dx,dy),scale=Math.min(1,42/(len||1));mobileMove={x:dx/42*scale,y:dy/42*scale};stick.style.transform='translate('+dx*scale+'px,'+dy*scale+'px)'}function resetJoy(){joyId=null;mobileMove={x:0,y:0};stick.style.transform='translate(0,0)'}joy.addEventListener('pointerup',resetJoy);joy.addEventListener('pointercancel',resetJoy);
-window.addEventListener('keydown',e=>{if(e.code==='Escape')pause()});
+window.addEventListener('keydown',e=>{if(e.code==='Escape'){if(!ui.orders.classList.contains('hidden')){ui.orders.classList.add('hidden');return}pause()}});
+// Drop held keys / fire when the window loses focus so the soldier never runs away on its own.
+window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouse.down=false;touchFire=false});
+window.addEventListener('pointercancel',()=>{mouse.down=false;touchFire=false});
+// A mouse-clicked button keeps focus; Space (sword) would then re-activate it. Release focus after pointer clicks.
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('button');if(b&&e.detail>0)b.blur()});
 const victoryVideo=$('victory-video'),victorySound=$('victory-sound');
 $('victory-skip').addEventListener('click',showVictoryResults);
+// Victory results buttons were previously unwired (dead buttons).
+$('victory-again').addEventListener('click',start);
+$('victory-menu').addEventListener('click',mainMenu);
 $('victory-sound').addEventListener('click',()=>{victoryVideo.muted=!victoryVideo.muted;victorySound.textContent=victoryVideo.muted?'ENABLE SOUND':'MUTE SOUND';if(victoryVideo.paused)victoryVideo.play().catch(()=>{})});
 victoryVideo.addEventListener('ended',showVictoryResults);
 victoryVideo.addEventListener('error',()=>{if(state==='victory'){toast('Victory video could not be loaded');showVictoryResults()}});
