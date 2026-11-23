@@ -526,7 +526,7 @@ function launchCavalryCharge(bridge){
 }
 function updateCavalryCharges(dt){}
 
-function start(){$('victory-video').pause();$('victory-video').currentTime=0;reset();spawnOpeningArmy();wave=1;waveActive=true;ui.wave.textContent='1';state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');ui.mobile.classList.remove('hidden');banner('WAVE 1 · OPENING ASSAULT');toast('40 soldiers and 8 cannons advancing from the middle-left');last=performance.now()}
+function start(){$('victory-video').pause();$('victory-video').currentTime=0;reset();spawnOpeningArmy();wave=1;waveActive=true;ui.wave.textContent='1';state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');ui.mobile.classList.remove('hidden');banner('WAVE 1 · OPENING ASSAULT');toast('80 soldiers and 12 cannons from all four nations are advancing');last=performance.now()}
 function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove('hidden')}else if(state==='paused'){state='playing';ui.pause.classList.add('hidden');last=performance.now()}}function mainMenu(){$('victory-video').pause();$('victory-video').currentTime=0;state='menu';ui.menu.classList.remove('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');last=performance.now()}
 function gameOver(){state='over';$('over-eyebrow').textContent='THE FORTRESS HAS FALLEN';$('over-title').textContent='DEFEAT';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent='Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length)}
 function reload(){if(player.reload<=0&&player.ammo<player.maxAmmo){player.reload=1.25;toast('Reloading musket…')}}
@@ -556,31 +556,45 @@ function spawnWave(){
 }
 // One scripted opening assault: deployed once by start(), never by spawnWave().
 function spawnOpeningArmy(){
- const faction='france',groups=new Map(),soldierTypes=[
-  'swordsman','swordsman','swordsman','swordsman','swordsman','swordsman',
-  'spearman','spearman','spearman','spearman','spearman','spearman',
-  'rifleman','rifleman','rifleman','rifleman','rifleman','rifleman',
-  'swordsman','swordsman','spearman','spearman','rifleman','rifleman',
-  'swordsman','swordsman','spearman','spearman','rifleman','rifleman',
-  'swordsman','swordsman','spearman','spearman','rifleman','rifleman',
-  'swordsman','spearman','rifleman','swordsman'
+ // Four coordinated national armies converge on the fortress in the opening battle.
+ // 20 infantry + 3 cannons per nation = 92 opening troops total.
+ const nations=[
+  {faction:'france',camp:CAMP_SITES[0]},
+  {faction:'spain',camp:CAMP_SITES[1]},
+  {faction:'portugal',camp:CAMP_SITES[2]},
+  {faction:'england',camp:CAMP_SITES[3]}
  ];
- for(let i=0;i<soldierTypes.length;i++){
-  const groupIndex=Math.floor(i/6),gx=610-(groupIndex%2)*55,gy=1420+groupIndex*112;
-  const e=makeSoldier(gx+rand(-22,22),gy+rand(-22,22),faction,soldierTypes[i],false);
-  let formation=groups.get(groupIndex);
-  if(!formation){formation={members:[],leader:null,x:e.x,y:e.y,dir:0,kind:groupIndex%2?'line':'wedge'};groups.set(groupIndex,formation)}
-  e.waveFormation=formation;e.waveFormationIndex=formation.members.length;
-  formation.members.push(e);if(!formation.leader)formation.leader=e;
-  enemies.push(e);
+ const troopTypes=[
+  'swordsman','swordsman','spearman','spearman','rifleman',
+  'swordsman','spearman','rifleman','rifleman','rifleman',
+  'swordsman','swordsman','spearman','rifleman','rifleman',
+  'swordsman','spearman','spearman','rifleman','rifleman'
+ ];
+ for(const nation of nations){
+  const camp=nation.camp,dx=WORLD.cx-camp.x,dy=WORLD.cy-camp.y,len=Math.hypot(dx,dy)||1;
+  const ux=dx/len,uy=dy/len,px=-uy,py=ux;
+  const infantryX=camp.x+ux*310,infantryY=camp.y+uy*310;
+  // Four five-man formations spread across each country's front.
+  for(let groupIndex=0;groupIndex<4;groupIndex++){
+   const offset=(groupIndex-1.5)*76,leaderX=infantryX+px*offset,leaderY=infantryY+py*offset;
+   const formation={members:[],leader:null,x:leaderX,y:leaderY,dir:Math.atan2(uy,ux),kind:groupIndex%2?'line':'wedge'};
+   for(let slot=0;slot<5;slot++){
+    const type=troopTypes[groupIndex*5+slot];
+    const e=makeSoldier(leaderX+rand(-15,15),leaderY+rand(-15,15),nation.faction,type,false);
+    e.waveFormation=formation;e.waveFormationIndex=formation.members.length;
+    formation.members.push(e);if(!formation.leader)formation.leader=e;
+    enemies.push(e);
+   }
+  }
+  // Three artillery pieces per country, positioned behind the infantry.
+  for(let gun=0;gun<3;gun++){
+   const offset=(gun-1)*118;
+   const e=makeSoldier(camp.x+ux*145+px*offset+rand(-10,10),camp.y+uy*145+py*offset+rand(-10,10),nation.faction,'cannon',false);
+   e.hp=e.max=145;e.attack=rand(.5,2.2);e.openingArtillery=true;enemies.push(e);
+  }
  }
- // Artillery begins behind the infantry and advances into firing range before opening fire.
- for(let i=0;i<8;i++){
-  const e=makeSoldier(420+rand(-18,18),1260+i*150+rand(-20,20),faction,'cannon',false);
-  e.hp=e.max=145;e.attack=rand(.5,2.2);e.openingArtillery=true;enemies.push(e);
- }
- banner('OPENING ASSAULT · 40 SOLDIERS · 8 CANNONS');
- toast('The French opening army is advancing from the western fields');
+ banner('FOUR-NATION ASSAULT · 80 SOLDIERS · 12 CANNONS');
+ toast('French, Spanish, Portuguese and English armies are advancing from all sides');
 }
 function kill(e){if(e.dead)return;e.dead=true;const pts=e.type==='elephant'?120:e.type==='cavalry'?55:25;score+=pts;floaters.push({x:e.x,y:e.y-12,text:'+'+pts,life:1,max:1});for(let i=0;i<9;i++)addParticle({x:e.x,y:e.y,vx:rand(-80,80),vy:rand(-80,80),life:rand(.25,.65),max:.65,color:i%2?'#b8a27a':'#6e3d32',r:rand(2,5)})}
 function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
