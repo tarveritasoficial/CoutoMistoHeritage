@@ -12,6 +12,7 @@ const FACTIONS = {
   england:{name:'England',a:'#b63c3c',b:'#eee9dc',dark:'#702323'}
 };
 const keys = Object.create(null), mouse = {x:0,y:0,down:false};
+let escortFormation='wedge';
 let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], cavalryCharges=[], defenders=[], villagers=[], sheep=[], cows=[], chickens=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0, floaters=[];
 const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
@@ -419,18 +420,18 @@ function assaultPlan(e){
 function siege(e,dt,rad){
  const plan=assaultPlan(e);e.wallId=plan.w.id;
  e.dir=Math.atan2(plan.pt.y-e.y,plan.pt.x-e.x);
- const speed=e.type==='elephant'?42:e.type==='cavalry'?105:82;
+ const speed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='spearman'?68:82;
  const move=()=>moveEnemyToward(e,plan.pt,speed*dt);
  if(plan.breach){move();return}
  const c=wallContact(plan.w,e);
  if(c.sep>rad+8)move();
  else if(e.attack<=0){damageWall(plan.w,SIEGE_DMG[e.type][plan.w.kind],c.x,c.y);e.attack=e.type==='swordsman'?.78:1.05}
 }
-function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){return {id:++idCounter,x,y,vx:0,vy:0,dir:0,hp:type==='elephant'?210:elite?145:type==='cavalry'?85:55,max:type==='elephant'?210:elite?145:type==='cavalry'?85:55,faction,type,friendly,elite,attack:rand(.2,1),reload:rand(.2,1.5),flash:0,dead:false,charge:0}}
+function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){return {id:++idCounter,x,y,vx:0,vy:0,dir:0,hp:type==='elephant'?210:elite?145:type==='cavalry'?85:type==='spearman'?78:type==='archer'?44:55,max:type==='elephant'?210:elite?145:type==='cavalry'?85:type==='spearman'?78:type==='archer'?44:55,faction,type,friendly,elite,attack:rand(.2,1),reload:rand(.2,1.5),flash:0,dead:false,charge:0}}
 function reset(){
  cavalryCharges=[];for(const r of RIVER_DEFS)for(const b of r.bridges)b.chargeSent=false;
  camera.x=clamp(WORLD.cx,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(WORLD.cy,vh/(2*zoom),WORLD.h-vh/(2*zoom));
- wave=0;score=0;fortress=100;elapsed=0;spawnClock=0;waveGap=2;
+ wave=0;score=0;fortress=100;escortFormation='wedge';elapsed=0;spawnClock=0;waveGap=2;
  enemies=[];bullets=[];particles=[];floaters=[];villagers=[];sheep=[];guards=[];escorts=[];defenders=[];idCounter=0;
  const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
@@ -492,7 +493,7 @@ function spawnWave(){
  const count=Math.max(4,Math.ceil((5+wave*3)*alive.length/camps.length));
  for(let i=0;i<count;i++){
   const camp=alive[i%alive.length];let type='rifleman';const roll=Math.random();
-  if(wave>=7&&roll<.055)type='elephant';else if(wave>=3&&roll<.17)type='cavalry';else if(roll<(wave>=2?.43:.3))type='swordsman';
+  if(wave>=7&&roll<.045)type='elephant';else if(wave>=3&&roll<.15)type='cavalry';else if(wave>=2&&roll<.34)type='archer';else if(wave>=2&&roll<.52)type='spearman';else if(roll<(wave>=2?.68:.3))type='swordsman';
   const e=makeSoldier(camp.x+rand(-90,90),camp.y+rand(-90,90),camp.faction,type,false);e.hp+=Math.floor(wave*.6);e.max=e.hp;enemies.push(e);
  }
  if(wave>=4&&wave%2===0){const camp=alive[Math.floor(rand(0,alive.length))],a=Math.atan2(camp.y-WORLD.cy,camp.x-WORLD.cx),cr=rand(580,640),e=makeSoldier(WORLD.cx+Math.cos(a)*cr+rand(-70,70),WORLD.cy+Math.sin(a)*cr+rand(-70,70),camp.faction,'cannon',false);e.hp=130;e.max=130;enemies.push(e)}
@@ -513,7 +514,8 @@ for(const w of walls)w.flash=Math.max(0,w.flash-dt);updateCamps(dt);updateSheep(
 for(const g of guards){if(g.hp<=0)continue;const target=nearestEnemy(g,215);if(target){g.dir=angle(g,target);g.attack-=dt;if(g.attack<=0){shoot(g,g.dir,'couto',eliteDamage(g),500);g.attack=rand(1.2,2.1)}}else{const dx=g.home.x-g.x,dy=g.home.y-g.y;moveToward(g,g.home,Math.hypot(dx,dy)*Math.min(1,dt*1.5))}}
 for(let i=0;i<escorts.length;i++){
  const g=escorts[i];if(g.hp<=0)continue;
- const a=-Math.PI/2+i*Math.PI*2/Math.max(1,escorts.length),slot={x:player.x+Math.cos(a)*48,y:player.y+Math.sin(a)*48};
+ const a=escortFormation==='line'?player.dir+Math.PI/2:-Math.PI/2+i*Math.PI*2/Math.max(1,escorts.length);
+  const slot=escortFormation==='line'?{x:player.x-Math.cos(player.dir)*42+Math.cos(a)*(i-(escorts.length-1)/2)*28,y:player.y-Math.sin(player.dir)*42+Math.sin(a)*(i-(escorts.length-1)/2)*28}:{x:player.x+Math.cos(a)*48,y:player.y+Math.sin(a)*48};
  const target=nearestEnemy(g,185);let camp=null;
  if(!target)for(const c of camps){if(!c.destroyed&&dist(g,c)<c.r+45&&dist(player,c)<c.r+260){camp=c;break}}
  if(target){const dd=dist(g,target);g.dir=angle(g,target);if(dd>29)stepTo(g,routeTo(g,target),105*dt);else{g.attack-=dt;if(g.attack<=0){target.hp-=34;g.attack=.68;if(target.hp<=0)kill(target)}}}
@@ -534,7 +536,8 @@ for(const d of defenders){
 for(const e of enemies){
  if(e.hp<=0)continue;
  e.attack-=dt;
- if(e.chargeCamp){
+ if(e.impactReset>0){e.impactReset-=dt;if(e.impactReset<=0)e.chargeImpactReady=true}
+  if(e.chargeCamp){
   const camp=e.chargeCamp;
   if(camp.destroyed){e.chargeCamp=null;continue}
   let threat=player,td=dist(e,player);
@@ -562,7 +565,7 @@ for(const e of enemies){
     if(dist(e,slot)>13)moveEnemyToward(e,slot,e.chargeSpeed*dt);
    }
   }else{e.dir=angle(e,goal);if(gd>34)moveEnemyToward(e,goal,e.chargeSpeed*dt)}
-  if(gd<=34&&e.attack<=0){if(goal===player){if(player.invuln<=0){player.hp-=22;player.invuln=.45}}else goal.hp-=26;e.attack=.72}
+  if(gd<=34&&e.attack<=0){const impact=e.chargeImpactReady===false?22:30;if(goal===player){if(player.invuln<=0){player.hp-=impact;player.invuln=.45}}else{goal.hp-=impact;if(goal.hp>0&&goal.type!=='spearman'){const shove=angle(e,goal);moveLand(goal,Math.cos(shove)*26,Math.sin(shove)*26)}}e.chargeImpactReady=false;e.impactReset=goal.type==='spearman'?1.9:1.15;e.attack=.72}
   continue;
  }
  if(e.campGuard){campGuardAI(e,dt);continue}
@@ -581,15 +584,21 @@ for(const e of enemies){
  if(coreDistance<145&&e.attack<=0){fortress=Math.max(0,fortress-(e.type==='elephant'?8:e.type==='cavalry'?4.5:2.4));e.attack=1.0;continue;}
  // melee troops outside the fort cannot reach the defenders: they must break a wall, gate or bastion first
  if(e.type!=='rifleman'&&!inside&&behindWalls(target)){siege(e,dt,rad);continue}
- if(e.type==='elephant'||e.type==='cavalry'){
+ if(e.type==='archer'){
+   if(d>255)moveEnemyToward(e,target,66*dt);else if(d<175)moveEnemyToward(e,{x:e.x-Math.cos(e.dir)*70,y:e.y-Math.sin(e.dir)*70},48*dt);
+   else if(e.attack<=0){shoot(e,e.dir,'enemy',10,470);e.attack=1.9}
+   continue;
+  }
+  if(e.type==='elephant'||e.type==='cavalry'){
   const speed=e.type==='elephant'?42:105;
   if(d>34)moveEnemyToward(e,target,speed*dt)
   else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=e.type==='elephant'?22:15;player.invuln=.45}}else if(target.hp!==undefined)target.hp-=e.type==='elephant'?32:20;e.attack=1.05}
   continue;
  }
- if(e.type==='swordsman'){
-  if(d>31)moveEnemyToward(e,target,82*dt)
-  else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=15;player.invuln=.48}}else if(target.hp!==undefined)target.hp-=19;e.attack=.78}
+ if(e.type==='swordsman'||e.type==='spearman'){
+  const reach=e.type==='spearman'?39:31;
+  if(d>reach)moveEnemyToward(e,target,(e.type==='spearman'?68:82)*dt)
+  else if(e.attack<=0){const damage=e.type==='spearman'?21:19;if(target===player){if(player.invuln<=0){player.hp-=damage;player.invuln=.48}}else if(target.hp!==undefined)target.hp-=damage;e.attack=e.type==='spearman'?1.0:.78}
   continue;
  }
  // Musketeers keep a firing distance and shoot at the closest defender.
@@ -886,7 +895,7 @@ if(c.type==='cannon'){drawCannon(0,0,0);ctx.fillStyle=f.a;ctx.fillRect(-4,-14,8,
 if(c.type==='elephant'){ctx.fillStyle='#756e5c';ctx.beginPath();ctx.ellipse(0,0,29,21,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#8c8068';ctx.beginPath();ctx.arc(24,-4,13,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#9b8e75';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(32,0);ctx.quadraticCurveTo(43,12,32,22);ctx.stroke();ctx.fillStyle=f.a;ctx.fillRect(-12,-20,27,12);ctx.fillStyle=f.b;ctx.fillRect(-8,-18,18,4);ctx.fillStyle='#d8c79c';ctx.fillRect(-9,-30,18,12);ctx.restore();return}
 if(c.type==='cavalry'){ctx.fillStyle='#5e4934';ctx.beginPath();ctx.ellipse(-5,5,21,10,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#6e543a';ctx.beginPath();ctx.arc(13,0,8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#493b2b';ctx.lineWidth=3;for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(i*10,10);ctx.lineTo(i*11+4,22);ctx.stroke()}ctx.fillStyle=f.a;ctx.beginPath();ctx.arc(0,-10,8,0,Math.PI*2);ctx.fill();ctx.fillStyle=f.b;ctx.fillRect(-5,-14,10,5);ctx.restore();return}
 ctx.fillStyle='#18231b';ctx.beginPath();ctx.ellipse(0,3,9,13,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=c.friendly&&!c.elite?'#8b6843':f.a;ctx.beginPath();ctx.ellipse(0,0,8,11,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=f.b;ctx.fillRect(-6,-4,12,4);ctx.fillStyle='#d8b990';ctx.beginPath();ctx.arc(0,-11,6,0,Math.PI*2);ctx.fill();if(c.friendly&&!c.elite){ctx.fillStyle='#b99a5e';ctx.beginPath();ctx.ellipse(0,-17,9,3,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#80603d';ctx.fillRect(-5,-20,10,3)}else{ctx.fillStyle=f.dark;ctx.fillRect(-7,-17,14,4);ctx.fillStyle=f.b;ctx.fillRect(-5,-19,10,2)}
-ctx.strokeStyle=c.type==='swordsman'?'#d8d0b9':'#40372a';ctx.lineWidth=c.type==='swordsman'?3:2.5;ctx.beginPath();ctx.moveTo(2,-1);ctx.lineTo(c.type==='swordsman'?22:19,-1);ctx.stroke();ctx.fillStyle='#ddd0ad';ctx.fillRect(c.type==='swordsman'?20:17,-3,4,4);
+if(c.type==='archer'){ctx.strokeStyle='#5a3e26';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(11,0,9,-1.2,1.2);ctx.stroke();ctx.strokeStyle='#d9c79d';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(11,-9);ctx.lineTo(11,9);ctx.stroke()}else{ctx.strokeStyle=c.type==='swordsman'?'#d8d0b9':c.type==='spearman'?'#c8b68d':'#40372a';ctx.lineWidth=c.type==='swordsman'?3:c.type==='spearman'?3.5:2.5;ctx.beginPath();ctx.moveTo(2,-1);ctx.lineTo(c.type==='spearman'?29:c.type==='swordsman'?22:19,-1);ctx.stroke();ctx.fillStyle='#ddd0ad';ctx.fillRect(c.type==='spearman'?27:c.type==='swordsman'?20:17,-3,4,4)}
 if(isPlayer){ctx.strokeStyle='#f6df9a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,17,0,Math.PI*2);ctx.stroke()}
 if(c.elite){ctx.strokeStyle='#f1d477';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,14,0,Math.PI*2);ctx.stroke()}
 if(c.hp<c.max){ctx.fillStyle='#251b16';ctx.fillRect(-11,-27,22,3);ctx.fillStyle='#c64d3d';ctx.fillRect(-11,-27,22*c.hp/c.max,3)}
@@ -999,7 +1008,7 @@ canvas.addEventListener('wheel',e=>{if(state!=='playing'&&state!=='paused')retur
 canvas.addEventListener('pointermove',e=>{const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y});
 canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){mouse.down=true;const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y}});
 window.addEventListener('pointerup',()=>{mouse.down=false;touchFire=false});
-window.addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Space'&&state==='playing')sword();if(e.code==='KeyR'&&state==='playing')reload();if(e.code==='KeyE'&&state==='playing'){if(cannonCooldown<=0){shoot(player,player.dir,'couto',88,390);cannonCooldown=4.5;toast('Bastion cannon fired · reloading')}else toast('Cannon reloading…')}});window.addEventListener('keyup',e=>keys[e.code]=false);
+window.addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Space'&&state==='playing')sword();if(e.code==='KeyF'&&state==='playing'){escortFormation=escortFormation==='wedge'?'line':'wedge';banner(escortFormation==='line'?'GUARD FORMATION · LINE':'GUARD FORMATION · WEDGE');toast('Personal guard formation changed')}if(e.code==='KeyR'&&state==='playing')reload();if(e.code==='KeyE'&&state==='playing'){if(cannonCooldown<=0){shoot(player,player.dir,'couto',88,390);cannonCooldown=4.5;toast('Bastion cannon fired · reloading')}else toast('Cannon reloading…')}});window.addEventListener('keyup',e=>keys[e.code]=false);
 // ---------- Start screen: garrison deployment and fortress blueprint ----------
 const ROLE_IDS=['wall-count','guard-count','active-count'];
 function drawBlueprint(counts){
