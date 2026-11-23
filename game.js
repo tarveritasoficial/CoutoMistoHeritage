@@ -77,17 +77,22 @@ function pushOutOfWalls(u,rad,friendly=false){
 // true for points on or inside the wall line (the side the defenders live on)
 function behindWalls(p,m=14){for(const n of CURTAIN_DIRS)if((p.x-WORLD.cx)*n.x+(p.y-WORLD.cy)*n.y>FORT.apothem+m)return false;return true}
 const RIVER_DEFS=[
- // All bridges stay at their existing positions and run vertically across
- // the mostly horizontal rivers. Their road approaches line up north-to-south.
- {y:1010,bridges:[{x:560,y:1010,angle:0},{x:3089,y:1010,angle:0}]},
- {y:2590,bridges:[{x:956,y:2590,angle:0},{x:3444,y:2590,angle:0}]}
+ // One continuous L-shaped river: west-to-east across the north, then south
+ // along the eastern side. Bridges are aligned perpendicular to each section.
+ {curves:[
+  [[-80,985],[760,1075],[1450,932],[2200,1002]],
+  [[2200,1002],[2700,1050],[3150,982],[3600,1010]],
+  [[3600,1010],[3670,1510],[3530,2090],[3600,2590]]
+ ],bridges:[
+  {x:560,y:1010,angle:0},
+  {x:3089,y:1000,angle:0},
+  {x:3600,y:1600,angle:Math.PI/2},
+  {x:3600,y:2300,angle:Math.PI/2}
+ ]}
 ];
 function riverCurvePoints(r){
  const out=[];
- const curves=[
-  [[-80,r.y-25],[760,r.y+65],[1450,r.y-78],[2200,r.y-8]],
-  [[2200,r.y-8],[2950,r.y+62],[3660,r.y-68],[4480,r.y+18]]
- ];
+ const curves=r.curves;
  for(const c of curves)for(let i=0;i<=70;i++){
   if(out.length&&i===0)continue;
   const t=i/70,u=1-t;
@@ -532,9 +537,12 @@ function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save(
  for(const c of camps)drawEnemyCamp(c);
  drawTrees();drawFortress();ctx.restore()}
 function drawRiverPath(r){
- const y=r.y;ctx.beginPath();ctx.moveTo(-80,y-25);
- ctx.bezierCurveTo(760,y+65,1450,y-78,2200,y-8);
- ctx.bezierCurveTo(2950,y+62,3660,y-68,4480,y+18);
+ ctx.beginPath();
+ for(let i=0;i<r.curves.length;i++){
+  const c=r.curves[i];
+  if(i===0)ctx.moveTo(c[0][0],c[0][1]);
+  ctx.bezierCurveTo(c[1][0],c[1][1],c[2][0],c[2][1],c[3][0],c[3][1]);
+ }
 }
 function drawRiversAndBridges(){
  for(const r of RIVER_DEFS){
@@ -743,9 +751,12 @@ function drawMinimap(){
  // Rivers follow the same cubic curves as the main battlefield.
  ctx.lineCap='round';ctx.lineJoin='round';
  for(const r of RIVER_DEFS){
-  ctx.beginPath();ctx.moveTo(X(-80),Y(r.y-25));
-  ctx.bezierCurveTo(X(760),Y(r.y+65),X(1450),Y(r.y-78),X(2200),Y(r.y-8));
-  ctx.bezierCurveTo(X(2950),Y(r.y+62),X(3660),Y(r.y-68),X(4480),Y(r.y+18));
+  ctx.beginPath();
+  for(let i=0;i<r.curves.length;i++){
+   const c=r.curves[i];
+   if(i===0)ctx.moveTo(X(c[0][0]),Y(c[0][1]));
+   ctx.bezierCurveTo(X(c[1][0]),Y(c[1][1]),X(c[2][0]),Y(c[2][1]),X(c[3][0]),Y(c[3][1]));
+  }
   ctx.strokeStyle='#263e40';ctx.lineWidth=Math.max(5,mw/WORLD.w*142);ctx.stroke();
   ctx.strokeStyle='#39777d';ctx.lineWidth=Math.max(3,mw/WORLD.w*94);ctx.stroke();
   ctx.strokeStyle='rgba(156,205,197,.48)';ctx.lineWidth=Math.max(1,mw/WORLD.w*3);ctx.stroke();
