@@ -483,8 +483,8 @@ function reset(){
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
  const activeCount=clamp(Math.floor(Number($('active-count').value)||0),0,40);
  walls=buildWalls();waveActive=false;victoryTimer=0;camps=buildCamps();sheep=buildSheep();cows=buildFarmAnimals('cow',9);chickens=buildFarmAnimals('chicken',20);
- // Three lightly armed local peasants defend each safe farm field with slings.
- for(const farm of FARM_SITES){if(!farmSiteSafe(farm))continue;for(const [ox,oy] of [[-48,-20],[35,-32],[22,48]]){const p=makeSoldier(farm.x+ox,farm.y+oy,'couto','archer',true,false);p.peasant=true;p.hp=p.max=32;p.home={x:p.x,y:p.y};p.attack=rand(.3,1.4);p.reload=rand(.3,1.4);peasants.push(p)}}
+ // Four lightly armed local peasants defend each safe farm field with slings.
+ for(const farm of FARM_SITES){if(!farmSiteSafe(farm))continue;for(const [ox,oy] of [[-68,-24],[0,-60],[62,-8],[12,58]]){const p=makeSoldier(farm.x+ox,farm.y+oy,'couto','archer',true,false);p.peasant=true;p.hp=p.max=32;p.home={x:p.x,y:p.y};p.attack=rand(.3,1.4);p.reload=rand(.3,1.4);peasants.push(p)}}
  wallPosts(wallCount).forEach((p,i)=>{
   const g=makeSoldier(p.x,p.y,'couto','rifleman',true,true);g.slot=i;g.home={x:p.x,y:p.y};g.dir=p.a;guards.push(g);
  });
@@ -901,9 +901,15 @@ function drawCartRoads(project,scale){
 // Traditional medieval field clusters: no modern buildings, just irregular crop strips,
 // rough hedges, timber fencing, hay and narrow footpaths.
 const FARM_SITES=[
- {x:1320,y:390,turn:-.12,kind:0},{x:2860,y:390,turn:.16,kind:1},
- {x:1260,y:3170,turn:.18,kind:1},{x:2910,y:3160,turn:-.14,kind:0},
- {x:760,y:2110,turn:.28,kind:0},{x:3160,y:2050,turn:-.22,kind:1}
+ // Northern fields
+ {x:1320,y:390,turn:-.12,kind:0},{x:2100,y:390,turn:.11,kind:1},{x:2860,y:390,turn:.16,kind:1},
+ // Western and central-western countryside
+ {x:760,y:1450,turn:-.18,kind:1},{x:760,y:2110,turn:.28,kind:0},{x:650,y:2650,turn:-.12,kind:1},
+ {x:1400,y:2400,turn:.2,kind:0},
+ // Eastern fields
+ {x:3160,y:1450,turn:.16,kind:0},{x:3160,y:2050,turn:-.22,kind:1},{x:2900,y:2400,turn:-.1,kind:0},
+ // Southern farmland, above the river bend
+ {x:1260,y:3170,turn:.18,kind:1},{x:2100,y:3100,turn:-.2,kind:0},{x:2910,y:3160,turn:-.14,kind:0}
 ];
 function farmSiteSafe(f){
  if(f.x<260||f.y<260||f.x>WORLD.w-260||f.y>WORLD.h-260)return false;
