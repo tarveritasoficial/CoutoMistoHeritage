@@ -381,7 +381,7 @@ function updateSheep(dt){
 }
 function victory(){
  state='victory';ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');
- const alive=guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+cavalryCharges.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length;
+ const alive=guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length;
  const total=guards.length+escorts.length+defenders.length;
  $('victory-score').textContent=score.toLocaleString();$('victory-waves').textContent=wave;$('victory-soldiers').textContent=alive+'/'+total;
  const mins=Math.floor(elapsed/60),secs=Math.floor(elapsed%60);$('victory-time').textContent=mins+':'+String(secs).padStart(2,'0');
@@ -453,7 +453,7 @@ function reset(){
  ui.wave.textContent='0';ui.score.textContent='0';updateHud()
 }
 function updateCampObjectives(){const remaining=camps.filter(c=>!c.destroyed).length;const count=$('camp-objective-count');if(count)count.textContent=remaining+' / '+camps.length+' REMAINING';for(const c of camps){const row=$('camp-objective-'+c.id);if(!row)continue;const ratio=c.destroyed?0:clamp(c.hp/c.max,0,1);row.classList.toggle('destroyed',c.destroyed);const bar=row.querySelector('.camp-objective-fill');if(bar)bar.style.width=(ratio*100)+'%';const value=row.querySelector('.camp-objective-value');if(value)value.textContent=c.destroyed?'DESTROYED':Math.ceil(ratio*100)+'%';}}
-function updateHud(){updateCampObjectives();const playerRatio=clamp(player.hp/player.max,0,1),fortRatio=clamp(fortress/100,0,1);ui.health.style.width=(playerRatio*100)+'%';ui.health.style.background=playerRatio>.55?'#75ad69':playerRatio>.25?'#d1b46c':'#c64d3d';ui.healthText.textContent=Math.ceil(player.hp)+'%';ui.fort.style.width=(fortRatio*100)+'%';ui.fort.style.background=fortRatio>.55?'#d1b46c':fortRatio>.25?'#df9148':'#c64d3d';ui.fortText.textContent=Math.ceil(fortress)+'%';ui.ammo.textContent=player.ammo+' / '+player.maxAmmo;ui.reload.textContent=player.reload>0?'RELOADING':'READY';const rb=$('reload-bar');if(rb)rb.style.width=(player.reload>0?clamp(1-player.reload/1.25,0,1)*100:0)+'%';ui.guards.textContent=(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+cavalryCharges.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length);ui.wave.textContent=wave;ui.score.textContent=score;const up=walls.filter(w=>w.hp>0).length;ui.walls.textContent=up+'/'+walls.length;ui.walls.style.color=up<walls.length?'#f0a58f':'';const cl=camps.filter(c=>!c.destroyed).length;ui.camps.textContent=cl+'/'+camps.length}
+function updateHud(){updateCampObjectives();const playerRatio=clamp(player.hp/player.max,0,1),fortRatio=clamp(fortress/100,0,1);ui.health.style.width=(playerRatio*100)+'%';ui.health.style.background=playerRatio>.55?'#75ad69':playerRatio>.25?'#d1b46c':'#c64d3d';ui.healthText.textContent=Math.ceil(player.hp)+'%';ui.fort.style.width=(fortRatio*100)+'%';ui.fort.style.background=fortRatio>.55?'#d1b46c':fortRatio>.25?'#df9148':'#c64d3d';ui.fortText.textContent=Math.ceil(fortress)+'%';ui.ammo.textContent=player.ammo+' / '+player.maxAmmo;ui.reload.textContent=player.reload>0?'RELOADING':'READY';const rb=$('reload-bar');if(rb)rb.style.width=(player.reload>0?clamp(1-player.reload/1.25,0,1)*100:0)+'%';ui.guards.textContent=(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length);ui.wave.textContent=wave;ui.score.textContent=score;const up=walls.filter(w=>w.hp>0).length;ui.walls.textContent=up+'/'+walls.length;ui.walls.style.color=up<walls.length?'#f0a58f':'';const cl=camps.filter(c=>!c.destroyed).length;ui.camps.textContent=cl+'/'+camps.length}
 
 function launchCavalryCharge(bridge){
  if(bridge.chargeSent)return;
@@ -467,33 +467,14 @@ function launchCavalryCharge(bridge){
   const spread=(i-9.5)*13;
   const x=clamp(useX?edgeX:target.x+spread,18,WORLD.w-18);
   const y=clamp(useX?target.y+spread:edgeY,18,WORLD.h-18);
-  const h=makeSoldier(x,y,'couto','cavalry',true,false);
-  h.hp=h.max=105;h.chargeTarget=target;h.chargeSpeed=235;h.attack=rand(.05,.45);
-  cavalryCharges.push(h);
+  const h=makeSoldier(x,y,target.faction,'cavalry',false,false);
+  h.hp=h.max=105;h.chargeCamp=target;h.chargeSpeed=235;h.attack=rand(.05,.45);h.campGuard=false;
+  enemies.push(h);
  }
- banner('CAVALRY CHARGE · 20 HORSEMEN');
- toast('Reinforcements! Twenty cavalry are charging '+target.name);
+ banner('ENEMY CAVALRY · 20 HORSEMEN');
+ toast(target.name+' sends 20 cavalry to defend the camp!');
 }
-function updateCavalryCharges(dt){
- for(const h of cavalryCharges){
-  if(h.hp<=0)continue;
-  let target=h.chargeTarget;
-  if(!target||target.destroyed)target=camps.filter(c=>!c.destroyed).sort((a,b)=>dist(h,a)-dist(h,b))[0];
-  if(!target)continue;
-  h.chargeTarget=target;
-  const guard=enemies.filter(e=>e.hp>0&&e.camp===target).sort((a,b)=>dist(h,a)-dist(h,b))[0];
-  const goal=guard&&dist(h,guard)<155?guard:target;
-  const d=dist(h,goal);h.dir=angle(h,goal);
-  if(d>(goal===target?target.r+12:27))navMove(h,goal,h.chargeSpeed*dt);
-  else if(h.attack<=0){
-   if(goal===target)damageCamp(target,58);
-   else{goal.hp-=48;if(goal.hp<=0)kill(goal)}
-   h.attack=.52;
-  }
-  h.attack=Math.max(0,h.attack-dt);
- }
- cavalryCharges=cavalryCharges.filter(h=>h.hp>0);
-}
+function updateCavalryCharges(dt){}
 
 function start(){$('victory-video').pause();$('victory-video').currentTime=0;reset();state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');ui.mobile.classList.remove('hidden');banner('DEFEND THE STAR FORTRESS');toast('The gates open for you: leave the fort and destroy the enemy camps');last=performance.now()}
 function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove('hidden')}else if(state==='paused'){state='playing';ui.pause.classList.add('hidden');last=performance.now()}}function mainMenu(){$('victory-video').pause();$('victory-video').currentTime=0;state='menu';ui.menu.classList.remove('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');last=performance.now()}
@@ -550,6 +531,17 @@ for(const d of defenders){
 for(const e of enemies){
  if(e.hp<=0)continue;
  e.attack-=dt;
+ if(e.chargeCamp){
+  const camp=e.chargeCamp;
+  if(camp.destroyed){e.chargeCamp=null;continue}
+  let threat=player,td=dist(e,player);
+  for(const ally of [...escorts,...guards,...defenders])if(ally.hp>0&&dist(e,ally)<td){threat=ally;td=dist(e,ally)}
+  const goal=td<620?threat:player;
+  const gd=dist(e,goal);e.dir=angle(e,goal);
+  if(gd>34)moveEnemyToward(e,goal,e.chargeSpeed*dt);
+  else if(e.attack<=0){if(goal===player){if(player.invuln<=0){player.hp-=22;player.invuln=.45}}else goal.hp-=26;e.attack=.72}
+  continue;
+ }
  if(e.campGuard){campGuardAI(e,dt);continue}
  // Wave enemies assault the fortress by default. They only divert to the
  // player when the player comes within close engagement range, then resume
@@ -586,10 +578,10 @@ for(const e of enemies){
 // intact walls, gates and bastions are solid
 for(const e of enemies)if(e.hp>0&&e.type!=='cannon')pushOutOfWalls(e,unitRadius(e));
 for(const g of escorts)if(g.hp>0)pushOutOfWalls(g,9,true);
-for(const h of cavalryCharges)if(h.hp>0)pushOutOfWalls(h,13,true);
+
 for(const d of defenders)if(d.hp>0)pushOutOfWalls(d,9,true);
 for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
-for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...cavalryCharges,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of [...sheep,...cows,...chickens]){if(s.hp>0&&dist(b,s)<(s.kind==='cow'?19:13)){damageAnimal(s,b.damage);b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of [...sheep,...cows,...chickens]){if(s.hp>0&&dist(b,s)<(s.kind==='cow'?19:13)){damageAnimal(s,b.damage);b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
+for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of [...sheep,...cows,...chickens]){if(s.hp>0&&dist(b,s)<(s.kind==='cow'?19:13)){damageAnimal(s,b.damage);b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of [...sheep,...cows,...chickens]){if(s.hp>0&&dist(b,s)<(s.kind==='cow'?19:13)){damageAnimal(s,b.damage);b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
 for(const f of floaters){f.y-=26*dt;f.life-=dt}floaters=floaters.filter(f=>f.life>0);
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(enemies.some(e=>dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
@@ -879,7 +871,7 @@ ctx.restore()}
 function draw(){ctx.clearRect(0,0,vw,vh);drawTerrain();ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
 for(const v of villagers){ctx.fillStyle='#d1c19c';ctx.beginPath();ctx.arc(v.x,v.y,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#594d3b';ctx.fillRect(v.x-3,v.y-3,6,5)}
 for(const s of sheep)drawSheep(s);for(const a of cows)drawFarmAnimal(a);for(const a of chickens)drawFarmAnimal(a);
-for(const g of guards){if(g.hp>0)drawCharacter(g)}for(const g of escorts){if(g.hp>0)drawCharacter(g)}for(const h of cavalryCharges){if(h.hp>0)drawCharacter(h)}for(const d of defenders){if(d.hp>0)drawCharacter(d)}for(const e of enemies)if(e.hp>0)drawCharacter(e);drawCharacter(player,true);
+for(const g of guards){if(g.hp>0)drawCharacter(g)}for(const g of escorts){if(g.hp>0)drawCharacter(g)}for(const d of defenders){if(d.hp>0)drawCharacter(d)}for(const e of enemies)if(e.hp>0)drawCharacter(e);drawCharacter(player,true);
 for(const b of bullets){ctx.fillStyle=b.faction==='enemy'?'#e76d43':'#f4df9e';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()}
 for(const p of particles){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
 // floating score popups
