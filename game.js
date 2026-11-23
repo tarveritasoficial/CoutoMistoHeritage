@@ -169,7 +169,15 @@ const navBlocked=new Uint8Array(NAV.cols*NAV.rows);
 (function buildNav(){
  // centre, edge midpoints and corners: a free cell is entirely free of water
  const probes=[[0,0],[12,0],[-12,0],[0,12],[0,-12],[12,12],[-12,12],[12,-12],[-12,-12]];
+ // Only cells near the river need the (expensive) exact test: flag them from the river polyline first.
+ const near=new Uint8Array(NAV.cols*NAV.rows);
+ for(const pts of RIVER_LINES)for(const q of pts){
+  const c0=Math.max(0,Math.floor((q.x-96)/NAV.cell)),c1=Math.min(NAV.cols-1,Math.floor((q.x+96)/NAV.cell));
+  const r0=Math.max(0,Math.floor((q.y-96)/NAV.cell)),r1=Math.min(NAV.rows-1,Math.floor((q.y+96)/NAV.cell));
+  for(let ry=r0;ry<=r1;ry++)for(let rx=c0;rx<=c1;rx++)near[ry*NAV.cols+rx]=1;
+ }
  for(let cy=0;cy<NAV.rows;cy++)for(let cx=0;cx<NAV.cols;cx++){
+  if(!near[cy*NAV.cols+cx])continue;
   const x=(cx+.5)*NAV.cell,y=(cy+.5)*NAV.cell;
   if(riverDistance(x,y)>110)continue;
   for(const pr of probes)if(riverBlocked(x+pr[0],y+pr[1])){navBlocked[cy*NAV.cols+cx]=1;break}
@@ -471,7 +479,7 @@ for(const e of enemies)if(e.hp>0&&e.type!=='cannon')pushOutOfWalls(e,unitRadius(
 for(const g of escorts)if(g.hp>0)pushOutOfWalls(g,9,true);
 for(const d of defenders)if(d.hp>0)pushOutOfWalls(d,9,true);
 for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
-for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(riverBlocked(b.x,b.y)){b.life=0;continue}if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
+for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(enemies.some(e=>dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
 if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));updateHud()}
