@@ -12,7 +12,7 @@ const FACTIONS = {
   england:{name:'England',a:'#b63c3c',b:'#eee9dc',dark:'#702323'}
 };
 const keys = Object.create(null), mouse = {x:0,y:0,down:false};
-let escortFormation='wedge',friendlyUnits=[],farmAnimals=[],hudRefreshTimer=0;
+let escortFormation='wedge',friendlyUnits=[],farmAnimals=[],peasants=[],hudRefreshTimer=0;
 let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], cavalryCharges=[], defenders=[], villagers=[], sheep=[], cows=[], chickens=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, mobileAim={x:0,y:0}, mobileAimActive=false, touchFire=false, idCounter=0, floaters=[];
 const MAX_ACTIVE_ENEMIES=220,MAX_WAVE_ENEMIES=72,MAX_PARTICLES=900,MAX_BULLETS=320;
 const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
@@ -478,11 +478,13 @@ function reset(){
  cavalryCharges=[];for(const r of RIVER_DEFS)for(const b of r.bridges)b.chargeSent=false;
  camera.x=clamp(WORLD.cx,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(WORLD.cy,vh/(2*zoom),WORLD.h-vh/(2*zoom));
  wave=0;score=0;fortress=100;escortFormation='wedge';elapsed=0;spawnClock=0;waveGap=2;
- enemies=[];bullets=[];particles=[];floaters=[];villagers=[];sheep=[];guards=[];escorts=[];defenders=[];idCounter=0;
+ enemies=[];bullets=[];particles=[];floaters=[];villagers=[];sheep=[];guards=[];escorts=[];defenders=[];peasants=[];idCounter=0;
  const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
  const activeCount=clamp(Math.floor(Number($('active-count').value)||0),0,40);
  walls=buildWalls();waveActive=false;victoryTimer=0;camps=buildCamps();sheep=buildSheep();cows=buildFarmAnimals('cow',9);chickens=buildFarmAnimals('chicken',20);
+ // Three lightly armed local peasants defend each safe farm field with slings.
+ for(const farm of FARM_SITES){if(!farmSiteSafe(farm))continue;for(const [ox,oy] of [[-48,-20],[35,-32],[22,48]]){const p=makeSoldier(farm.x+ox,farm.y+oy,'couto','archer',true,false);p.peasant=true;p.hp=p.max=42;p.home={x:p.x,y:p.y};p.attack=rand(.3,1.4);p.reload=rand(.3,1.4);peasants.push(p)}}
  wallPosts(wallCount).forEach((p,i)=>{
   const g=makeSoldier(p.x,p.y,'couto','rifleman',true,true);g.slot=i;g.home={x:p.x,y:p.y};g.dir=p.a;guards.push(g);
  });
@@ -497,7 +499,7 @@ function reset(){
  });
  player={x:WORLD.cx,y:WORLD.cy+65,vx:0,vy:0,dir:-Math.PI/2,hp:100,max:100,ammo:8,maxAmmo:8,reload:0,fire:0,sword:0,invuln:0};
  for(let i=0;i<15;i++)villagers.push({x:WORLD.cx+rand(-205,205),y:WORLD.cy+rand(-165,165),dir:rand(0,6.28),speed:rand(8,17),panic:0});
- friendlyUnits=guards.concat(escorts,defenders);farmAnimals=sheep.concat(cows,chickens);hudRefreshTimer=0;ui.wave.textContent='0';ui.score.textContent='0';updateHud()
+ friendlyUnits=guards.concat(escorts,defenders,peasants);farmAnimals=sheep.concat(cows,chickens);hudRefreshTimer=0;ui.wave.textContent='0';ui.score.textContent='0';updateHud()
 }
 function updateCampObjectives(){const remaining=camps.filter(c=>!c.destroyed).length;const count=$('camp-objective-count');if(count)count.textContent=remaining+' / '+camps.length+' REMAINING';for(const c of camps){const row=$('camp-objective-'+c.id);if(!row)continue;const ratio=c.destroyed?0:clamp(c.hp/c.max,0,1);row.classList.toggle('destroyed',c.destroyed);const bar=row.querySelector('.camp-objective-fill');if(bar)bar.style.width=(ratio*100)+'%';const value=row.querySelector('.camp-objective-value');if(value)value.textContent=c.destroyed?'DESTROYED':Math.ceil(ratio*100)+'%';}}
 function updateHud(){updateCampObjectives();const playerRatio=clamp(player.hp/player.max,0,1),fortRatio=clamp(fortress/100,0,1);ui.health.style.width=(playerRatio*100)+'%';ui.health.style.background=playerRatio>.55?'#75ad69':playerRatio>.25?'#d1b46c':'#c64d3d';ui.healthText.textContent=Math.ceil(player.hp)+'%';ui.fort.style.width=(fortRatio*100)+'%';ui.fort.style.background=fortRatio>.55?'#d1b46c':fortRatio>.25?'#df9148':'#c64d3d';ui.fortText.textContent=Math.ceil(fortress)+'%';ui.ammo.textContent=player.ammo+' / '+player.maxAmmo;ui.reload.textContent=player.reload>0?'RELOADING':'READY';const rb=$('reload-bar');if(rb)rb.style.width=(player.reload>0?clamp(1-player.reload/1.25,0,1)*100:0)+'%';ui.guards.textContent=(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length);ui.wave.textContent=wave;ui.score.textContent=score;const up=walls.filter(w=>w.hp>0).length;ui.walls.textContent=up+'/'+walls.length;ui.walls.style.color=up<walls.length?'#f0a58f':'';const cl=camps.filter(c=>!c.destroyed).length;ui.camps.textContent=cl+'/'+camps.length}
@@ -660,6 +662,17 @@ for(const d of defenders){
   else{d.attack-=dt;if(d.attack<=0){target.hp-=d.type==='spearman'&&target.type==='cavalry'?52:30;if(d.type==='spearman'&&target.type==='cavalry')target.hp-=24;d.attack=d.type==='spearman'?.82:.72;if(target.hp<=0)kill(target)}}
  }else if(d.post){
   const pd=dist(d,d.post);if(pd>4)d.dir=moveToward(d,d.post,Math.min(86*dt,pd))
+ }
+}
+// Farm peasants hold their ground and pelt nearby attackers with stones from slings.
+for(const p of peasants){
+ if(p.hp<=0)continue;
+ const target=nearestEnemy(p,310);
+ if(target){
+  p.dir=angle(p,target);p.attack-=dt;
+  if(p.attack<=0){shoot(p,p.dir,'couto',13,470);p.attack=rand(1.45,1.9)}
+ }else{
+  const d=dist(p,p.home);if(d>3)p.dir=moveToward(p,p.home,Math.min(48*dt,d));
  }
 }
 for(const e of enemies){
@@ -1174,6 +1187,16 @@ function drawCharacter(c,isPlayer=false){const s={x:c.x,y:c.y};if(!onScreen(c.x,
 if(c.type==='cannon'){drawCannon(0,0,0);ctx.fillStyle=f.a;ctx.fillRect(-4,-14,8,5);ctx.rotate(-(c.dir||0));if(c.hp<c.max){ctx.fillStyle='#251b16';ctx.fillRect(-14,-27,28,3);ctx.fillStyle='#c64d3d';ctx.fillRect(-14,-27,28*c.hp/c.max,3)}ctx.restore();return}
 if(c.type==='elephant'){ctx.fillStyle='#756e5c';ctx.beginPath();ctx.ellipse(0,0,29,21,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#8c8068';ctx.beginPath();ctx.arc(24,-4,13,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#9b8e75';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(32,0);ctx.quadraticCurveTo(43,12,32,22);ctx.stroke();ctx.fillStyle=f.a;ctx.fillRect(-12,-20,27,12);ctx.fillStyle=f.b;ctx.fillRect(-8,-18,18,4);ctx.fillStyle='#d8c79c';ctx.fillRect(-9,-30,18,12);ctx.restore();return}
 if(c.type==='cavalry'){ctx.fillStyle='#5e4934';ctx.beginPath();ctx.ellipse(-5,5,21,10,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#6e543a';ctx.beginPath();ctx.arc(13,0,8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#493b2b';ctx.lineWidth=3;for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(i*10,10);ctx.lineTo(i*11+4,22);ctx.stroke()}ctx.fillStyle=f.a;ctx.beginPath();ctx.arc(0,-10,8,0,Math.PI*2);ctx.fill();ctx.fillStyle=f.b;ctx.fillRect(-5,-14,10,5);ctx.restore();return}
+if(c.peasant){
+ ctx.fillStyle='#18231b';ctx.beginPath();ctx.ellipse(0,3,9,13,0,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#9b7548';ctx.beginPath();ctx.ellipse(0,0,8,11,0,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#d8b990';ctx.beginPath();ctx.arc(0,-11,6,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#c4a568';ctx.beginPath();ctx.ellipse(0,-16,11,3.5,0,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#57412c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(10,-2,7,-1.15,1.15);ctx.stroke();
+ ctx.strokeStyle='#d8c69b';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(10,-9);ctx.lineTo(10,5);ctx.stroke();
+ if(c.hp<c.max){ctx.fillStyle='#251b16';ctx.fillRect(-11,-27,22,3);ctx.fillStyle='#c64d3d';ctx.fillRect(-11,-27,22*c.hp/c.max,3)}
+ ctx.restore();return;
+}
 ctx.fillStyle='#18231b';ctx.beginPath();ctx.ellipse(0,3,9,13,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=c.friendly&&!c.elite?'#8b6843':f.a;ctx.beginPath();ctx.ellipse(0,0,8,11,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=f.b;ctx.fillRect(-6,-4,12,4);ctx.fillStyle='#d8b990';ctx.beginPath();ctx.arc(0,-11,6,0,Math.PI*2);ctx.fill();if(c.friendly&&!c.elite){ctx.fillStyle='#b99a5e';ctx.beginPath();ctx.ellipse(0,-17,9,3,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#80603d';ctx.fillRect(-5,-20,10,3)}else{ctx.fillStyle=f.dark;ctx.fillRect(-7,-17,14,4);ctx.fillStyle=f.b;ctx.fillRect(-5,-19,10,2)}
 if(c.type==='archer'){ctx.strokeStyle='#5a3e26';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(11,0,9,-1.2,1.2);ctx.stroke();ctx.strokeStyle='#d9c79d';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(11,-9);ctx.lineTo(11,9);ctx.stroke()}else{ctx.strokeStyle=c.type==='swordsman'?'#d8d0b9':c.type==='spearman'?'#c8b68d':'#40372a';ctx.lineWidth=c.type==='swordsman'?3:c.type==='spearman'?3.5:2.5;ctx.beginPath();ctx.moveTo(2,-1);ctx.lineTo(c.type==='spearman'?29:c.type==='swordsman'?22:19,-1);ctx.stroke();ctx.fillStyle='#ddd0ad';ctx.fillRect(c.type==='spearman'?27:c.type==='swordsman'?20:17,-3,4,4)}
 if(isPlayer){ctx.strokeStyle='#f6df9a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,17,0,Math.PI*2);ctx.stroke()}
@@ -1183,7 +1206,7 @@ ctx.restore()}
 function draw(){ctx.clearRect(0,0,vw,vh);drawTerrain();ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
 for(const v of villagers){ctx.fillStyle='#d1c19c';ctx.beginPath();ctx.arc(v.x,v.y,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#594d3b';ctx.fillRect(v.x-3,v.y-3,6,5)}
 for(const s of sheep)drawSheep(s);for(const a of cows)drawFarmAnimal(a);for(const a of chickens)drawFarmAnimal(a);
-for(const g of guards){if(g.hp>0)drawCharacter(g)}for(const g of escorts){if(g.hp>0)drawCharacter(g)}for(const d of defenders){if(d.hp>0)drawCharacter(d)}for(const e of enemies)if(e.hp>0)drawCharacter(e);drawCharacter(player,true);
+for(const g of guards){if(g.hp>0)drawCharacter(g)}for(const g of escorts){if(g.hp>0)drawCharacter(g)}for(const d of defenders){if(d.hp>0)drawCharacter(d)}for(const p of peasants){if(p.hp>0)drawCharacter(p)}for(const e of enemies)if(e.hp>0)drawCharacter(e);drawCharacter(player,true);
 for(const b of bullets){ctx.fillStyle=b.faction==='enemy'?'#e76d43':'#f4df9e';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()}
 for(const p of particles){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
 // floating score popups
