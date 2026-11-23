@@ -118,7 +118,7 @@ function riverBridgeAt(x,y,r){
  for(const b of r.bridges){
   const a=b.angle||0,dx=x-b.x,dy=y-b.y;
   const lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);
-  if(Math.abs(lx)<=40&&Math.abs(ly)<=82)return b;
+  if(Math.abs(lx)<=76&&Math.abs(ly)<=132)return b;
  }
  return null;
 }
