@@ -446,7 +446,7 @@ function reset(){
   g.followSlot=i;g.attack=rand(.1,.7);escorts.push(g);
  }
  activePosts(activeCount).forEach(p=>{
-  const d=makeSoldier(p.x,p.y,'couto','swordsman',true,false);
+  const d=makeSoldier(p.x,p.y,'couto',i%3===2?'spearman':'swordsman',true,false);
   d.post={x:p.x,y:p.y};d.dir=p.a;d.attack=rand(.1,.8);d.line=p.line;defenders.push(d);
  });
  player={x:WORLD.cx,y:WORLD.cy+65,vx:0,vy:0,dir:-Math.PI/2,hp:100,max:100,ammo:8,maxAmmo:8,reload:0,fire:0,sword:0,invuln:0};
@@ -528,7 +528,7 @@ for(const d of defenders){
  if(target){
   const dd=dist(d,target);d.dir=angle(d,target);
   if(dd>38)moveToward(d,target,86*dt)
-  else{d.attack-=dt;if(d.attack<=0){target.hp-=30;d.attack=.72;if(target.hp<=0)kill(target)}}
+  else{d.attack-=dt;if(d.attack<=0){target.hp-=d.type==='spearman'&&target.type==='cavalry'?52:30;if(d.type==='spearman'&&target.type==='cavalry')target.hp-=24;d.attack=d.type==='spearman'?.82:.72;if(target.hp<=0)kill(target)}}
  }else if(d.post){
   const pd=dist(d,d.post);if(pd>4)d.dir=moveToward(d,d.post,Math.min(86*dt,pd))
  }
@@ -565,7 +565,7 @@ for(const e of enemies){
     if(dist(e,slot)>13)moveEnemyToward(e,slot,e.chargeSpeed*dt);
    }
   }else{e.dir=angle(e,goal);if(gd>34)moveEnemyToward(e,goal,e.chargeSpeed*dt)}
-  if(gd<=34&&e.attack<=0){const impact=e.chargeImpactReady===false?22:30;if(goal===player){if(player.invuln<=0){player.hp-=impact;player.invuln=.45}}else{goal.hp-=impact;if(goal.hp>0&&goal.type!=='spearman'){const shove=angle(e,goal);moveLand(goal,Math.cos(shove)*26,Math.sin(shove)*26)}}e.chargeImpactReady=false;e.impactReset=goal.type==='spearman'?1.9:1.15;e.attack=.72}
+  if(gd<=34&&e.attack<=0){const impact=e.chargeImpactReady===false?22:30;if(goal===player){if(player.invuln<=0){player.hp-=impact;player.invuln=.45}}else{goal.hp-=impact;if(goal.type==='spearman')e.hp-=34;else if(goal.hp>0){const shove=angle(e,goal);moveLand(goal,Math.cos(shove)*26,Math.sin(shove)*26)}}e.chargeImpactReady=false;e.impactReset=goal.type==='spearman'?1.9:1.15;e.attack=.72}
   continue;
  }
  if(e.campGuard){campGuardAI(e,dt);continue}
@@ -592,7 +592,7 @@ for(const e of enemies){
   if(e.type==='elephant'||e.type==='cavalry'){
   const speed=e.type==='elephant'?42:105;
   if(d>34)moveEnemyToward(e,target,speed*dt)
-  else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=e.type==='elephant'?22:15;player.invuln=.45}}else if(target.hp!==undefined)target.hp-=e.type==='elephant'?32:20;e.attack=1.05}
+  else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=e.type==='elephant'?22:15;player.invuln=.45}}else if(target.hp!==undefined){if(target.type==='spearman'){target.hp-=e.type==='elephant'?32:20;e.hp-=e.type==='cavalry'?30:0}else target.hp-=e.type==='elephant'?32:20}e.attack=1.05}
   continue;
  }
  if(e.type==='swordsman'||e.type==='spearman'){
