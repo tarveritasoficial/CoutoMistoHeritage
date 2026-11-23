@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17251d">
   <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
   <title>Couto Misto Heritage</title>
-  <link rel="stylesheet" href="styles.css?v=20261123-polish2">
+  <link rel="stylesheet" href="styles.css?v=20261123-introplayfix1">
 </head>
 <body>
   <main id="game-shell">
@@ -25,12 +25,12 @@
       <div id="vignette" class="vignette" aria-hidden="true"></div>
       <div id="loading" class="overlay"><div class="loading-card"><div class="loader-crest">✦</div><h1>COUTO MISTO HERITAGE</h1><p>Preparing the fortress…</p><div class="loading-track"><i></i></div></div></div>
       <section id="trailer-screen" class="trailer-screen hidden" aria-label="Game trailer">
-        <video id="trailer-video" class="trailer-video" autoplay muted playsinline preload="auto">
-          <source src="CoutoMistoHeritage_intro_720p.mp4?v=20261123-introfix1" type="video/mp4">
+        <video id="trailer-video" class="trailer-video" autoplay muted playsinline preload="auto" webkit-playsinline>
+          <source src="CoutoMistoHeritage_intro_720p.mp4?v=20261123-introplayfix1" type="video/mp4">
         </video>
         <div class="trailer-shade"></div>
         <div class="trailer-brand"><span>✦ COUTO MISTO HERITAGE</span><small>THE FORTRESS MUST STAND</small></div>
-        <div class="trailer-controls"><button id="trailer-sound" class="trailer-btn" type="button">ENABLE SOUND</button><button id="trailer-skip" class="trailer-btn trailer-skip" type="button">SKIP INTRO ↗</button></div>
+        <div class="trailer-controls"><button id="trailer-play" class="trailer-btn trailer-play hidden" type="button">PLAY INTRO</button><button id="trailer-sound" class="trailer-btn" type="button">ENABLE SOUND</button><button id="trailer-skip" class="trailer-btn trailer-skip" type="button">SKIP INTRO ↗</button></div>
         <div class="trailer-caption">HOLD THE FORTRESS · DEFEND YOUR HERITAGE</div>
       </section>
       <div id="menu" class="overlay hidden"><div class="menu-card wide">
@@ -113,6 +113,6 @@
     </section>
     <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD · E CANNON</span></footer>
   </main>
-  <script src="game.js?v=20261123-phase1combat1"></script>
+  <script src="game.js?v=20261123-introplayfix1"></script>
 </body>
 </html>
