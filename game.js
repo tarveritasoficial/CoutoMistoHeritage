@@ -448,7 +448,6 @@ function assaultPlan(e){
  let best=null,bs=Infinity;
  for(const w of walls){
   const c=wallContact(w,e),score=c.d*(w.kind==='gate'?.6:w.kind==='bastion'?1.8:1);
-  if(w.id===e.wallId&&score>0){} 
   if(score<bs){bs=score;best={w,pt:c,breach:false}}
  }
  return best;
