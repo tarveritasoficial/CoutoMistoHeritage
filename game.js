@@ -108,7 +108,7 @@ function riverBridgeAt(x,y,r){
  for(const b of r.bridges){
   const a=b.angle||0,dx=x-b.x,dy=y-b.y;
   const lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);
-  if(Math.abs(lx)<=42&&Math.abs(ly)<=94)return b;
+  if(Math.abs(lx)<=104&&Math.abs(ly)<=138)return b;
  }
  return null;
 }
@@ -508,18 +508,18 @@ function drawRiversAndBridges(){
 }
 function drawWoodenBridge(x,y,rotation=0){
  ctx.save();ctx.translate(x,y);ctx.rotate(rotation);
- // Slightly wider and longer timber deck; position and orientation are unchanged.
- ctx.fillStyle='rgba(26,31,24,.38)';ctx.fillRect(-47,-88,94,176);
- ctx.fillStyle='#706b58';ctx.fillRect(-44,-85,9,170);ctx.fillRect(35,-85,9,170);
- ctx.fillStyle='#60472e';ctx.fillRect(-35,-85,70,170);
- ctx.fillStyle='#9a7447';ctx.fillRect(-31,-85,62,170);
- for(let yy=-80;yy<=80;yy+=13){
-  ctx.fillStyle=(yy/13)%2?'#a98553':'#8d6b42';ctx.fillRect(-30,yy,60,10);
-  ctx.strokeStyle='rgba(54,39,25,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-29,yy+10);ctx.lineTo(29,yy+10);ctx.stroke();
+ // Broad military bridge deck for reliable troop movement. Centre and angle unchanged.
+ ctx.fillStyle='rgba(26,31,24,.42)';ctx.fillRect(-116,-148,232,296);
+ ctx.fillStyle='#706b58';ctx.fillRect(-112,-144,12,288);ctx.fillRect(100,-144,12,288);
+ ctx.fillStyle='#60472e';ctx.fillRect(-100,-144,200,288);
+ ctx.fillStyle='#9a7447';ctx.fillRect(-94,-144,188,288);
+ for(let yy=-138;yy<=138;yy+=15){
+  ctx.fillStyle=(yy/15)%2?'#a98553':'#8d6b42';ctx.fillRect(-92,yy,184,12);
+  ctx.strokeStyle='rgba(54,39,25,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-91,yy+12);ctx.lineTo(91,yy+12);ctx.stroke();
  }
- ctx.strokeStyle='#4e3927';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-35,-76);ctx.lineTo(-35,76);ctx.moveTo(35,-76);ctx.lineTo(35,76);ctx.stroke();
- ctx.strokeStyle='#c09a62';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-35,-66);ctx.lineTo(-35,66);ctx.moveTo(35,-66);ctx.lineTo(35,66);ctx.stroke();
- for(const yy of [-76,-26,26,76]){ctx.fillStyle='#62472d';ctx.fillRect(-38,yy-3,8,8);ctx.fillRect(30,yy-3,8,8)}
+ ctx.strokeStyle='#4e3927';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-100,-132);ctx.lineTo(-100,132);ctx.moveTo(100,-132);ctx.lineTo(100,132);ctx.stroke();
+ ctx.strokeStyle='#c09a62';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-100,-118);ctx.lineTo(-100,118);ctx.moveTo(100,-118);ctx.lineTo(100,118);ctx.stroke();
+ for(const yy of [-132,-66,0,66,132]){ctx.fillStyle='#62472d';ctx.fillRect(-106,yy-4,12,10);ctx.fillRect(94,yy-4,12,10)}
  ctx.restore();
 }
 function drawEnemyCamp(c){
