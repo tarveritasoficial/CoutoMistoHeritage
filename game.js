@@ -90,7 +90,9 @@ const RIVER_DEFS=[
   {x:560,y:1010,angle:0},
   {x:3089,y:1000,angle:0},
   {x:3600,y:1600,angle:Math.PI/2},
-  {x:3600,y:2300,angle:Math.PI/2}
+  {x:3600,y:2300,angle:Math.PI/2},
+  // Southwest crossing, aligned with the local river bend.
+  {x:155,y:3290,angle:-2.29}
  ]}
 ];
 function riverCurvePoints(r){
