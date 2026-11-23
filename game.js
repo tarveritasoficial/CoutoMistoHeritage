@@ -275,8 +275,11 @@ function friendlyMoveBridge(u,target,len){
  return false;
 }
 function moveToward(u,p,len){
- if(u.friendly&&friendlyMoveBridge(u,p,len)){
-  const route=u.friendlyBridgeRoute;
+ // Friendly AI follows the same committed bridge route used by enemies.
+ // This prevents the ordinary river collision/waypoint logic from stopping
+ // escorts when they follow the player across a bridge.
+ if(u.friendly&&enemyMoveBridge(u,p,len)){
+  const route=u.bridgeRoute;
   u.dir=angle(u,route?(route.stage==='entry'?route.entry:route.exit):p);
   return u.dir;
  }
