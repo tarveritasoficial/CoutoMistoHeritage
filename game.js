@@ -605,11 +605,23 @@ for(const e of enemies){
     e.dir=angle(e,goal);
     if(gd>34)moveEnemyToward(e,goal,e.chargeSpeed*dt);
     formation.x=e.x;formation.y=e.y;formation.dir=e.dir;
+    // A wide wedge cannot fit on the narrow bridge deck. Collapse the whole
+    // charge into a single-file column while the leader is near any river.
+    formation.column=riverDistance(e.x,e.y)<245;
    }else{
-    let row=0,start=0;while(e.chargeIndex>=start+row+1){start+=row+1;row++}
-    const col=e.chargeIndex-start,cols=row===5?5:row+1;
-    const lateral=(col-(cols-1)/2)*31,back=row*38,fd=formation.dir;
-    const slot={x:formation.x-Math.cos(fd)*back-Math.sin(fd)*lateral,y:formation.y-Math.sin(fd)*back+Math.cos(fd)*lateral};
+    const fd=formation.dir,index=e.chargeIndex;
+    let slot;
+    if(formation.column){
+     // Queue riders behind the leader; each rider independently follows the
+     // same bridge-safe navigation route to its moving slot.
+     const back=index*27;
+     slot={x:formation.x-Math.cos(fd)*back,y:formation.y-Math.sin(fd)*back};
+    }else{
+     let row=0,start=0;while(index>=start+row+1){start+=row+1;row++}
+     const col=index-start,cols=row===5?5:row+1;
+     const lateral=(col-(cols-1)/2)*31,back=row*38;
+     slot={x:formation.x-Math.cos(fd)*back-Math.sin(fd)*lateral,y:formation.y-Math.sin(fd)*back+Math.cos(fd)*lateral};
+    }
     e.dir=angle(e,slot);
     if(dist(e,slot)>13)moveEnemyToward(e,slot,e.chargeSpeed*dt);
    }
@@ -746,10 +758,10 @@ function buildCartRoadRoutes(){
   const finish={x:camp.x+campDx/campD*92,y:camp.y+campDy/campD*92};
   const dx=entry.x-start.x,dy=entry.y-start.y,d=Math.max(1,Math.hypot(dx,dy));
   const side=(Math.round(b.x/100)+Math.round(b.y/100))%2?1:-1;
-  const bend=b.x<700?95:145+(Math.round(b.x/10)%4)*38;
+  const bend=b.x<700?34:145+(Math.round(b.x/10)%4)*38;
   const approach={x:(start.x+entry.x)*.5-(dy/d)*bend*side,y:(start.y+entry.y)*.5+(dx/d)*bend*side};
   const ex=finish.x-exit.x,ey=finish.y-exit.y,ed=Math.max(1,Math.hypot(ex,ey));
-  const departBend=b.x<700?72:115+(Math.round(b.y/10)%4)*34;
+  const departBend=b.x<700?26:115+(Math.round(b.y/10)%4)*34;
   const departure={x:(exit.x+finish.x)*.5-(ey/ed)*departBend*side,y:(exit.y+finish.y)*.5+(ex/ed)*departBend*side};
   routes.push({start,approach,entry,exit,departure,finish});
  }
