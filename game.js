@@ -232,7 +232,54 @@ function moveEnemyToward(e,p,len){
  }
  return moveToward(e,p,len);
 }
+// Friendly troops use committed bridge routes just like enemy troops.
+// The ordinary bank-sliding movement cannot cross the river because it tests
+// every step against water; this routine keeps them aligned on the bridge deck.
+function friendlyBridgeContains(x,y,b,radius=0){
+ const a=b.angle||0,dx=x-b.x,dy=y-b.y;
+ const lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);
+ return Math.abs(lx)<=40+radius&&Math.abs(ly)<=82+radius;
+}
+function friendlyMoveBridge(u,target,len){
+ let route=u.friendlyBridgeRoute;
+ if(route){
+  const b=route.bridge,radius=9,goal=route.stage==='entry'?route.entry:route.exit;
+  if(dist(u,goal)<=Math.max(7,radius*.45)){
+   if(route.stage==='entry'){route.stage='cross'}
+   else{u.friendlyBridgeRoute=null;return false}
+  }
+  const nextGoal=route.stage==='entry'?route.entry:route.exit;
+  const d=dist(u,nextGoal),step=Math.min(len,d),a=angle(u,nextGoal),steps=Math.max(1,Math.ceil(step/3));
+  for(let i=0;i<steps;i++){
+   const nx=u.x+Math.cos(a)*step/steps,ny=u.y+Math.sin(a)*step/steps;
+   if(riverBlocked(nx,ny)&&!friendlyBridgeContains(nx,ny,b,radius+4))break;
+   u.x=nx;u.y=ny;
+  }
+  return true;
+ }
+ for(let i=0;i<RIVER_DEFS.length;i++){
+  const river=RIVER_DEFS[i],from=riverNearestPoint(RIVER_LINES[i],u.x,u.y),to=riverNearestPoint(RIVER_LINES[i],target.x,target.y);
+  if(!from||!to)continue;
+  const sideA=from.tx*(u.y-from.y)-from.ty*(u.x-from.x);
+  const sideB=to.tx*(target.y-to.y)-to.ty*(target.x-to.x);
+  if(sideA*sideB>=0||Math.abs(sideA)<1||Math.abs(sideB)<1)continue;
+  let bridge=river.bridges[0],best=Infinity;
+  for(const candidate of river.bridges){
+   const score=dist(u,candidate)+dist(candidate,target);
+   if(score<best){best=score;bridge=candidate}
+  }
+  const a=bridge.angle||0,nx=-Math.sin(a),ny=Math.cos(a),side=Math.sign(sideA)||1;
+  u.friendlyBridgeRoute={bridge,entry:{x:bridge.x+nx*side*112,y:bridge.y+ny*side*112},exit:{x:bridge.x-nx*side*112,y:bridge.y-ny*side*112},stage:'entry'};
+  return friendlyMoveBridge(u,target,len);
+ }
+ return false;
+}
 function moveToward(u,p,len){
+ if(u.friendly&&friendlyMoveBridge(u,p,len)){
+  const route=u.friendlyBridgeRoute;
+  u.dir=angle(u,route?(route.stage==='entry'?route.entry:route.exit):p);
+  return u.dir;
+ }
  const goal=riverRouteTarget(u,p),d=dist(u,goal),a=angle(u,goal),step=Math.min(len,d);
  moveLand(u,Math.cos(a)*step,Math.sin(a)*step);return a;
 }
