@@ -106,6 +106,9 @@ function riverCurvePoints(r){
  return out;
 }
 const RIVER_LINES=RIVER_DEFS.map(r=>riverCurvePoints(r));
+// Snap every bridge onto the true river centreline, perpendicular to the current. Some decks sat up to
+// 20px off the water, leaving a gap between the bank and the deck that units could not step across.
+RIVER_DEFS.forEach((r,i)=>r.bridges.forEach(b=>{const p=riverNearestPoint(RIVER_LINES[i],b.x,b.y);if(p){b.x=Math.round(p.x);b.y=Math.round(p.y);b.angle=Math.atan2(p.ty,p.tx)}}));
 function riverYAtX(points,x){
  let best=points[0],bd=Infinity;
  for(let i=1;i<points.length;i++){
@@ -145,34 +148,6 @@ function riverBlocked(x,y){
  }
  return false;
 }
-function riverRouteTarget(from,to){
- for(let i=0;i<RIVER_DEFS.length;i++){
-  const r=RIVER_DEFS[i],a=riverNearestPoint(RIVER_LINES[i],from.x,from.y),b=riverNearestPoint(RIVER_LINES[i],to.x,to.y);
-  if(!a||!b)continue;
-  const crossA=a.tx*(from.y-a.y)-a.ty*(from.x-a.x),crossB=b.tx*(to.y-b.y)-b.ty*(to.x-b.x);
-  const currentBridge=riverBridgeAt(from.x,from.y,r);
-  if(currentBridge){
-   // The exit waypoint is deliberately beyond the deck AND outside the
-   // bridge collision rectangle, so the AI can leave bridge mode.
-   const nx=-Math.sin(currentBridge.angle||0),ny=Math.cos(currentBridge.angle||0);
-   const side=Math.sign(crossA)||1;
-   return {x:currentBridge.x-nx*side*112,y:currentBridge.y-ny*side*112};
-  }
-  if(crossA*crossB>=0)continue;
-  let bridge=r.bridges[0],best=Infinity;
-  for(const candidate of r.bridges){
-   const score=dist(from,candidate)+dist(candidate,to);
-   if(score<best){best=score;bridge=candidate}
-  }
-  const nx=-Math.sin(bridge.angle||0),ny=Math.cos(bridge.angle||0);
-  const side=Math.sign(crossA)||1;
-  const entry={x:bridge.x+nx*side*100,y:bridge.y+ny*side*100};
-  // Approach the near bank, then the deck centre. The far-bank waypoint
-  // above is outside the deck corridor, preventing a waypoint deadlock.
-  return dist(from,entry)>18?entry:bridge;
- }
- return to;
-}
 function moveLand(u,dx,dy){
  const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/5)),sx=dx/steps,sy=dy/steps;
  for(let i=0;i<steps;i++){
@@ -184,59 +159,96 @@ function moveLand(u,dx,dy){
   if(!riverBlocked(u.x,ny))u.y=ny;
  }
 }
-// Enemy-only bridge traversal. Units commit to a bridge, align on the near bank,
-// cross straight along the deck, and resume normal pathing after reaching dry land.
-function enemyBridgeContains(x,y,b,radius=0){
- const a=b.angle||0,dx=x-b.x,dy=y-b.y;
- const lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);
- return Math.abs(lx)<=40+radius&&Math.abs(ly)<=82+radius;
+// ---------- Navigation: the river can only be crossed on a bridge ----------
+// A coarse grid is built once from the exact river collision test. Cells that touch water (or
+// the bank margin) are closed, bridge decks stay open, and units use A* to walk around the
+// water and through the nearest bridge. Replaces the old single-sign "which side am I on"
+// guess, which froze units whenever the straight line crossed the C-shaped river twice.
+const NAV={cell:24,cols:Math.ceil(WORLD.w/24),rows:Math.ceil(WORLD.h/24)};
+const navBlocked=new Uint8Array(NAV.cols*NAV.rows);
+(function buildNav(){
+ // centre, edge midpoints and corners: a free cell is entirely free of water
+ const probes=[[0,0],[12,0],[-12,0],[0,12],[0,-12],[12,12],[-12,12],[12,-12],[-12,-12]];
+ for(let cy=0;cy<NAV.rows;cy++)for(let cx=0;cx<NAV.cols;cx++){
+  const x=(cx+.5)*NAV.cell,y=(cy+.5)*NAV.cell;
+  if(riverDistance(x,y)>110)continue;
+  for(const pr of probes)if(riverBlocked(x+pr[0],y+pr[1])){navBlocked[cy*NAV.cols+cx]=1;break}
+ }
+})();
+function navAt(x,y){const cx=clamp(Math.floor(x/NAV.cell),0,NAV.cols-1),cy=clamp(Math.floor(y/NAV.cell),0,NAV.rows-1);return navBlocked[cy*NAV.cols+cx]===1}
+// true when the straight segment stays on open ground (samples within 14px of the start are ignored
+// so a unit hugging the bank can always walk away from it)
+function navClear(x0,y0,x1,y1){
+ const dx=x1-x0,dy=y1-y0,len=Math.hypot(dx,dy);if(len<1)return true;
+ const n=Math.ceil(len/10);
+ for(let i=1;i<=n;i++){const t=i/n;if(t*len<14&&i<n)continue;if(navAt(x0+dx*t,y0+dy*t))return false}
+ return true;
 }
-function enemyMoveBridge(e,target,len){
- let route=e.bridgeRoute;
- if(route){
-  const b=route.bridge,radius=unitRadius(e);
-  let goal=route.stage==='entry'?route.entry:route.exit;
-  if(dist(e,goal)<=Math.max(7,radius*.45)){
-   if(route.stage==='entry'){route.stage='cross';goal=route.exit}
-   else if(route.stage==='cross'){route.stage='exit';goal=route.exit}
-   else {e.bridgeRoute=null;return false}
+function navFreeCell(x,y){
+ const C=NAV.cols,R=NAV.rows,cx=clamp(Math.floor(x/NAV.cell),0,C-1),cy=clamp(Math.floor(y/NAV.cell),0,R-1);
+ if(!navBlocked[cy*C+cx])return cy*C+cx;
+ for(let r=1;r<=10;r++){
+  let best=-1,bd=Infinity;
+  for(let oy=-r;oy<=r;oy++)for(let ox=-r;ox<=r;ox++){
+   if(Math.max(Math.abs(ox),Math.abs(oy))!==r)continue;
+   const nx=cx+ox,ny=cy+oy;if(nx<0||ny<0||nx>=C||ny>=R||navBlocked[ny*C+nx])continue;
+   const d=ox*ox+oy*oy;if(d<bd){bd=d;best=ny*C+nx}
   }
-  const d=dist(e,goal),step=Math.min(len,d),a=angle(e,goal),steps=Math.max(1,Math.ceil(step/3));
-  for(let i=0;i<steps;i++){
-   const nx=e.x+Math.cos(a)*step/steps,ny=e.y+Math.sin(a)*step/steps;
-   const onDeck=enemyBridgeContains(nx,ny,b,radius+4);
-   if(riverBlocked(nx,ny)&&!onDeck)break;
-   e.x=nx;e.y=ny;
+  if(best>=0)return best;
+ }
+ return -1;
+}
+const navSeen=new Int32Array(NAV.cols*NAV.rows),navClosed=new Int32Array(NAV.cols*NAV.rows),navPrev=new Int32Array(NAV.cols*NAV.rows),navG=new Float32Array(NAV.cols*NAV.rows);
+let navStamp=0;
+function navPath(sx,sy,gx,gy){
+ const s=navFreeCell(sx,sy),g=navFreeCell(gx,gy);if(s<0||g<0)return null;
+ const C=NAV.cols,R=NAV.rows,tx=g%C,ty=(g/C)|0,heap=[];
+ const h=i=>{const dx=Math.abs(i%C-tx),dy=Math.abs(((i/C)|0)-ty);return dx+dy-.5858*Math.min(dx,dy)};
+ const push=(i,f)=>{heap.push([f,i]);let k=heap.length-1;while(k>0){const p=(k-1)>>1;if(heap[p][0]<=heap[k][0])break;const t=heap[p];heap[p]=heap[k];heap[k]=t;k=p}};
+ const pop=()=>{const top=heap[0],last=heap.pop();if(heap.length){heap[0]=last;let k=0;for(;;){const l=2*k+1,r=l+1;let m=k;if(l<heap.length&&heap[l][0]<heap[m][0])m=l;if(r<heap.length&&heap[r][0]<heap[m][0])m=r;if(m===k)break;const t=heap[m];heap[m]=heap[k];heap[k]=t;k=m}}return top};
+ navStamp++;navSeen[s]=navStamp;navG[s]=0;navPrev[s]=-1;push(s,h(s));
+ let found=false;
+ while(heap.length){
+  const i=pop()[1];if(navClosed[i]===navStamp)continue;navClosed[i]=navStamp;
+  if(i===g){found=true;break}
+  const cx=i%C,cy=(i/C)|0;
+  for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+   if(!ox&&!oy)continue;const nx=cx+ox,ny=cy+oy;if(nx<0||ny<0||nx>=C||ny>=R)continue;
+   const j=ny*C+nx;if(navBlocked[j]||navClosed[j]===navStamp)continue;
+   if(ox&&oy&&(navBlocked[cy*C+nx]||navBlocked[ny*C+cx]))continue; // never cut a corner of the water
+   const ng=navG[i]+(ox&&oy?1.4142:1);
+   if(navSeen[j]!==navStamp||ng<navG[j]){navSeen[j]=navStamp;navG[j]=ng;navPrev[j]=i;push(j,ng+h(j))}
   }
-  return true;
  }
- for(let i=0;i<RIVER_DEFS.length;i++){
-  const river=RIVER_DEFS[i],from=riverNearestPoint(RIVER_LINES[i],e.x,e.y),to=riverNearestPoint(RIVER_LINES[i],target.x,target.y);
-  if(!from||!to)continue;
-  const sideA=from.tx*(e.y-from.y)-from.ty*(e.x-from.x);
-  const sideB=to.tx*(target.y-to.y)-to.ty*(target.x-to.x);
-  if(sideA*sideB>=0||Math.abs(sideA)<1||Math.abs(sideB)<1)continue;
-  let bridge=river.bridges[0],best=Infinity;
-  for(const candidate of river.bridges){const score=dist(e,candidate)+dist(candidate,target);if(score<best){best=score;bridge=candidate}}
-  const a=bridge.angle||0,nx=-Math.sin(a),ny=Math.cos(a),side=Math.sign(sideA)||1;
-  e.bridgeRoute={bridge,entry:{x:bridge.x+nx*side*88,y:bridge.y+ny*side*88},exit:{x:bridge.x-nx*side*88,y:bridge.y-ny*side*88},stage:'entry'};
-  return enemyMoveBridge(e,target,len);
+ if(!found)return null;
+ const pts=[];for(let i=g;i>=0;i=navPrev[i])pts.push({x:(i%C+.5)*NAV.cell,y:(((i/C)|0)+.5)*NAV.cell});
+ pts.reverse();pts.shift();
+ return pts;
+}
+// One movement step toward p. Walks straight when the way is clear, otherwise follows an A* route
+// around the water (through a bridge). Returns the heading used.
+function navMove(u,p,len){
+ let heading=angle(u,p),goal=p;
+ const forced=u.navForce>0; // set by stuck detection: follow the A* route even if the straight line looks clear
+ if(!forced&&navClear(u.x,u.y,p.x,p.y))u.nav=null;
+ else{
+  let n=u.nav;
+  if(!n||dist(n.goal,p)>110||n.travel>150){n=u.nav={goal:{x:p.x,y:p.y},path:navPath(u.x,u.y,p.x,p.y)||[],travel:0}}
+  n.travel+=len;if(forced)u.navForce-=len;
+  while(n.path.length&&dist(u,n.path[0])<16)n.path.shift();
+  while(n.path.length>1&&navClear(u.x,u.y,n.path[1].x,n.path[1].y))n.path.shift();
+  if(n.path.length)goal=n.path[0];
+  heading=angle(u,goal);
  }
- return false;
+ const ox=u.x,oy=u.y,step=Math.min(len,dist(u,goal));
+ moveLand(u,Math.cos(heading)*step,Math.sin(heading)*step);
+ // The water slid the unit along the bank instead of letting it advance: switch to the A* route.
+ if(step>.3){const moved=Math.hypot(u.x-ox,u.y-oy);if(moved<step*.35){if((u.stuck=(u.stuck||0)+1)>5){u.navForce=220;u.nav=null;u.stuck=0}}else u.stuck=0}
+ return heading;
 }
-function moveEnemyToward(e,p,len){
- if(enemyMoveBridge(e,p,len)){
-  const route=e.bridgeRoute;
-  e.dir=angle(e,route?(route.stage==='entry'?route.entry:route.exit):p);
-  return e.dir;
- }
- return moveToward(e,p,len);
-}
-function moveToward(u,p,len){
- const goal=riverRouteTarget(u,p),d=dist(u,goal),a=angle(u,goal),step=Math.min(len,d);
- moveLand(u,Math.cos(a)*step,Math.sin(a)*step);return a;
-}
-function stepTo(u,p,len){return moveToward(u,p,len)}
+function moveEnemyToward(e,p,len){const h=navMove(e,p,len);if(e.nav)e.dir=h;return h}
+function moveToward(u,p,len){return navMove(u,p,len)}
+function stepTo(u,p,len){return navMove(u,p,len)}
 // Friendly troops cross the wall line through a gate (or a breach). Returns the next point to walk to.
 function routeTo(from,to){
  const fi=behindWalls(from),ti=behindWalls(to);
