@@ -14,7 +14,7 @@ const FACTIONS = {
 const keys = Object.create(null), mouse = {x:0,y:0,down:false};
 let escortFormation='wedge',friendlyUnits=[],farmAnimals=[],hudRefreshTimer=0;
 let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], cavalryCharges=[], defenders=[], villagers=[], sheep=[], cows=[], chickens=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, mobileAim={x:0,y:0}, mobileAimActive=false, touchFire=false, idCounter=0, floaters=[];
-const MAX_ACTIVE_ENEMIES=120,MAX_WAVE_ENEMIES=72,MAX_PARTICLES=900,MAX_BULLETS=320;
+const MAX_ACTIVE_ENEMIES=220,MAX_WAVE_ENEMIES=72,MAX_PARTICLES=900,MAX_BULLETS=320;
 const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
 function addParticle(p){if(particles.length<MAX_PARTICLES)particles.push(p)}
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
@@ -316,6 +316,8 @@ function buildCamps(){
 }
 function damageCamp(c,amount){
  if(c.destroyed)return;
+ // Enemy camps are protected through waves 1–9. Damage becomes possible once wave 10 begins.
+ if(wave<10){c.flash=.08;return}
  c.hp=Math.max(0,c.hp-amount);c.flash=.14;
  for(let i=0;i<3;i++)addParticle({x:c.x+rand(-40,40),y:c.y+rand(-40,40),vx:rand(-50,50),vy:rand(-70,-10),life:rand(.3,.7),max:.7,color:i%2?'#7d6a4a':'#c9b88a',r:rand(2,4)});
  if(c.hp>0)return;
@@ -556,8 +558,8 @@ function spawnWave(){
 }
 // One scripted opening assault: deployed once by start(), never by spawnWave().
 function spawnOpeningArmy(){
- // Four coordinated national armies converge on the fortress in the opening battle.
- // 20 infantry + 3 cannons per nation = 92 opening troops total.
+ // Four national armies attack from their camps, plus a fifth multinational army
+ // deployed on the middle-left flank. This scripted force appears only at battle start.
  const nations=[
   {faction:'france',camp:CAMP_SITES[0]},
   {faction:'spain',camp:CAMP_SITES[1]},
@@ -570,6 +572,18 @@ function spawnOpeningArmy(){
   'swordsman','swordsman','spearman','rifleman','rifleman',
   'swordsman','spearman','spearman','rifleman','rifleman'
  ];
+ const deployFormation=(faction,cx,cy,ux,uy,groupIndex,count,types,spacing=76)=>{
+  const px=-uy,py=ux,offset=(groupIndex-(count-1)/2)*spacing;
+  const leaderX=cx+px*offset,leaderY=cy+py*offset;
+  const formation={members:[],leader:null,x:leaderX,y:leaderY,dir:Math.atan2(uy,ux),kind:groupIndex%2?'line':'wedge'};
+  for(let slot=0;slot<5;slot++){
+   const type=types[(groupIndex*5+slot)%types.length];
+   const e=makeSoldier(leaderX+rand(-15,15),leaderY+rand(-15,15),faction,type,false);
+   e.waveFormation=formation;e.waveFormationIndex=formation.members.length;
+   formation.members.push(e);if(!formation.leader)formation.leader=e;
+   enemies.push(e);
+  }
+ };
  for(const nation of nations){
   const camp=nation.camp,dx=WORLD.cx-camp.x,dy=WORLD.cy-camp.y,len=Math.hypot(dx,dy)||1;
   const ux=dx/len,uy=dy/len,px=-uy,py=ux;
@@ -593,8 +607,33 @@ function spawnOpeningArmy(){
    e.hp=e.max=145;e.attack=rand(.5,2.2);e.openingArtillery=true;enemies.push(e);
   }
  }
- banner('FOUR-NATION ASSAULT · 80 SOLDIERS · 12 CANNONS');
- toast('French, Spanish, Portuguese and English armies are advancing from all sides');
+ // Fifth force: 4 national detachments converge from the middle-left of the map.
+ // Each contributes 15 infantry and 4 cannons: 60 soldiers + 16 artillery.
+ const flank={x:620,y:1800};
+ for(let n=0;n<nations.length;n++){
+  const nation=nations[n],baseAngle=(-.30+n*.20),ux=Math.cos(baseAngle),uy=Math.sin(baseAngle);
+  const infantryX=flank.x+ux*150,infantryY=flank.y+uy*150;
+  // Three five-man groups per nation, arranged as alternating wedge/line formations.
+  for(let groupIndex=0;groupIndex<3;groupIndex++){
+   const offset=(groupIndex-1)*92,px=-uy,py=ux,leaderX=infantryX+px*offset,leaderY=infantryY+py*offset;
+   const formation={members:[],leader:null,x:leaderX,y:leaderY,dir:baseAngle,kind:groupIndex%2?'line':'wedge'};
+   for(let slot=0;slot<5;slot++){
+    const type=troopTypes[(groupIndex*5+slot)%troopTypes.length];
+    const e=makeSoldier(leaderX+rand(-14,14),leaderY+rand(-14,14),nation.faction,type,false);
+    e.waveFormation=formation;e.waveFormationIndex=formation.members.length;
+    formation.members.push(e);if(!formation.leader)formation.leader=e;
+    enemies.push(e);
+   }
+  }
+  // Four additional cannons per nation support the central-left assault.
+  for(let gun=0;gun<4;gun++){
+   const offset=(gun-1.5)*105;
+   const e=makeSoldier(flank.x-ux*95+(-uy)*offset+rand(-9,9),flank.y-uy*95+ux*offset+rand(-9,9),nation.faction,'cannon',false);
+   e.hp=e.max=145;e.attack=rand(.5,2.2);e.openingArtillery=true;enemies.push(e);
+  }
+ }
+ banner('FIVE-ARMY ASSAULT · 140 SOLDIERS · 28 CANNONS');
+ toast('Four nations attack from their camps, reinforced by a multinational army on the middle-left flank');
 }
 function kill(e){if(e.dead)return;e.dead=true;const pts=e.type==='elephant'?120:e.type==='cavalry'?55:25;score+=pts;floaters.push({x:e.x,y:e.y-12,text:'+'+pts,life:1,max:1});for(let i=0;i<9;i++)addParticle({x:e.x,y:e.y,vx:rand(-80,80),vy:rand(-80,80),life:rand(.25,.65),max:.65,color:i%2?'#b8a27a':'#6e3d32',r:rand(2,5)})}
 function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
