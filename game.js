@@ -870,9 +870,17 @@ updateDeployment();
 $('start-btn').addEventListener('click',start);$('menu-btn').addEventListener('click',mainMenu);$('over-menu-btn').addEventListener('click',mainMenu);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',start);$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));
 $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();touchFire=true});$('touch-fire').addEventListener('pointerup',()=>touchFire=false);$('touch-sword').addEventListener('pointerdown',e=>{e.preventDefault();sword()});$('touch-reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
 const joy=$('joystick'),stick=$('stick');let joyId=null;joy.addEventListener('pointerdown',e=>{joyId=e.pointerId;joy.setPointerCapture(joyId);moveJoy(e)});joy.addEventListener('pointermove',e=>{if(e.pointerId===joyId)moveJoy(e)});function moveJoy(e){const r=joy.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),len=Math.hypot(dx,dy),scale=Math.min(1,42/(len||1));mobileMove={x:dx/42*scale,y:dy/42*scale};stick.style.transform='translate('+dx*scale+'px,'+dy*scale+'px)'}function resetJoy(){joyId=null;mobileMove={x:0,y:0};stick.style.transform='translate(0,0)'}joy.addEventListener('pointerup',resetJoy);joy.addEventListener('pointercancel',resetJoy);
-window.addEventListener('keydown',e=>{if(e.code==='Escape')pause()});
+window.addEventListener('keydown',e=>{if(e.code==='Escape'){if(!ui.orders.classList.contains('hidden')){ui.orders.classList.add('hidden');return}pause()}});
+// Drop held keys / fire when the window loses focus so the soldier never runs away on its own.
+window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouse.down=false;touchFire=false});
+window.addEventListener('pointercancel',()=>{mouse.down=false;touchFire=false});
+// A mouse-clicked button keeps focus; Space (sword) would then re-activate it. Release focus after pointer clicks.
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('button');if(b&&e.detail>0)b.blur()});
 const victoryVideo=$('victory-video'),victorySound=$('victory-sound');
 $('victory-skip').addEventListener('click',showVictoryResults);
+// Victory results buttons were previously unwired (dead buttons).
+$('victory-again').addEventListener('click',start);
+$('victory-menu').addEventListener('click',mainMenu);
 $('victory-sound').addEventListener('click',()=>{victoryVideo.muted=!victoryVideo.muted;victorySound.textContent=victoryVideo.muted?'ENABLE SOUND':'MUTE SOUND';if(victoryVideo.paused)victoryVideo.play().catch(()=>{})});
 victoryVideo.addEventListener('ended',showVictoryResults);
 victoryVideo.addEventListener('error',()=>{if(state==='victory'){toast('Victory video could not be loaded');showVictoryResults()}});
