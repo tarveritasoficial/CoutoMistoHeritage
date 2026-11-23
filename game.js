@@ -687,8 +687,9 @@ function buildCartRoadRoutes(){
  }
  return routes;
 }
+const CART_ROAD_ROUTES=buildCartRoadRoutes();
 function drawCartRoads(project,scale){
- const routes=buildCartRoadRoutes(),p=project||((p)=>p);
+ const routes=CART_ROAD_ROUTES,p=project||((p)=>p);
  ctx.lineCap='round';ctx.lineJoin='round';
  for(const r of routes){
   ctx.beginPath();
@@ -786,16 +787,23 @@ function drawEnemyCamp(c){
  const r=c.hp/c.max;ctx.fillStyle='#1a1510';ctx.fillRect(c.x-40,c.y-122,80,7);ctx.fillStyle=r>.5?'#c9a24a':r>.25?'#d98a3a':'#c64d3d';ctx.fillRect(c.x-39,c.y-121,78*r,5);
  ctx.fillStyle='#e8dcb8';ctx.font='bold 9px Inter';ctx.textAlign='center';ctx.fillText(c.name,c.x,c.y-129);ctx.textAlign='left';
 }
+let TREE_DECORATIONS=null;
 function drawTrees(){
- for(let i=0;i<360;i++){
-  const x=(i*271+85)%WORLD.w,y=(i*193+40)%WORLD.h;
-  if(!onScreen(x,y,38)||Math.hypot(x-WORLD.cx,y-WORLD.cy)<540||riverDistance(x,y)<92)continue;
-  let near=false;for(const s of CAMP_SITES)if(Math.hypot(x-s.x,y-s.y)<190){near=true;break}
-  if(near)continue;
-  const r=10+(i*7)%11;
+ // Tree placement and river/camp clearance are static: calculate them once, not 360 times per frame.
+ if(!TREE_DECORATIONS){
+  TREE_DECORATIONS=[];
+  for(let i=0;i<360;i++){
+   const x=(i*271+85)%WORLD.w,y=(i*193+40)%WORLD.h;
+   if(Math.hypot(x-WORLD.cx,y-WORLD.cy)<540||riverDistance(x,y)<92)continue;
+   let near=false;for(const camp of CAMP_SITES)if(Math.hypot(x-camp.x,y-camp.y)<190){near=true;break}
+   if(!near)TREE_DECORATIONS.push({i,x,y,r:10+(i*7)%11,leaf:5+(i*3)%6});
+  }
+ }
+ for(const t of TREE_DECORATIONS){
+  const {i,x,y,r,leaf}=t;if(!onScreen(x,y,38))continue;
   ctx.fillStyle='rgba(24,34,23,.28)';ctx.beginPath();ctx.ellipse(x+3,y+7,r+3,r*.65,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle=i%3===0?'#304a30':'#3d5a36';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle=i%4===0?'#83905a':'#6c8150';ctx.beginPath();ctx.arc(x-4,y-5,5+(i*3)%6,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=i%4===0?'#83905a':'#6c8150';ctx.beginPath();ctx.arc(x-4,y-5,leaf,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='rgba(181,173,117,.22)';ctx.beginPath();ctx.arc(x-5,y-7,2.2,0,Math.PI*2);ctx.fill();
  }
 }
@@ -937,6 +945,7 @@ function drawOffscreenMarkers(){
  }
 }
 
+let MINIMAP_FOREST=null;
 function drawMinimap(){
  const mw=Math.round(clamp(vw*.17,112,190)),mh=Math.round(mw*WORLD.h/WORLD.w),mx=12,my=88,sx=mw/WORLD.w,sy=mh/WORLD.h,X=x=>mx+x*sx,Y=y=>my+y*sy;
  ctx.save();
@@ -986,12 +995,17 @@ function drawMinimap(){
   ctx.strokeStyle='#101a15';ctx.lineWidth=1;ctx.strokeRect(cx-3.5,cy-3.5,7,7);
   if(c.destroyed){ctx.strokeStyle='#eee1c7';ctx.beginPath();ctx.moveTo(cx-3,cy-3);ctx.lineTo(cx+3,cy+3);ctx.moveTo(cx+3,cy-3);ctx.lineTo(cx-3,cy+3);ctx.stroke()}
  }
- // Small forest patches and landmark clearings make the terrain easier to read.
- for(let i=0;i<28;i++){
-  const x=(i*317+190)%WORLD.w,y=(i*541+370)%WORLD.h;
-  if(riverDistance(x,y)<95||Math.hypot(x-WORLD.cx,y-WORLD.cy)<560)continue;
-  ctx.fillStyle='rgba(27,49,30,.58)';ctx.beginPath();ctx.arc(X(x),Y(y),Math.max(1.2,mw/WORLD.w*38),0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='rgba(119,139,78,.8)';ctx.beginPath();ctx.arc(X(x)-1,Y(y)-1,Math.max(.7,mw/WORLD.w*17),0,Math.PI*2);ctx.fill();
+ // Static minimap forest patches are also filtered once; only their projection changes with size.
+ if(!MINIMAP_FOREST){
+  MINIMAP_FOREST=[];
+  for(let i=0;i<28;i++){
+   const x=(i*317+190)%WORLD.w,y=(i*541+370)%WORLD.h;
+   if(riverDistance(x,y)>=95&&Math.hypot(x-WORLD.cx,y-WORLD.cy)>=560)MINIMAP_FOREST.push({x,y});
+  }
+ }
+ for(const p of MINIMAP_FOREST){
+  ctx.fillStyle='rgba(27,49,30,.58)';ctx.beginPath();ctx.arc(X(p.x),Y(p.y),Math.max(1.2,mw/WORLD.w*38),0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(119,139,78,.8)';ctx.beginPath();ctx.arc(X(p.x)-1,Y(p.y)-1,Math.max(.7,mw/WORLD.w*17),0,Math.PI*2);ctx.fill();
  }
  // Enemy wave positions.
  ctx.fillStyle='#f06a5d';for(const e of enemies){if(e.hp>0&&!e.campGuard){ctx.beginPath();ctx.arc(X(e.x),Y(e.y),1.6,0,Math.PI*2);ctx.fill()}}
@@ -1005,7 +1019,25 @@ function drawMinimap(){
 }
 function drawMenuPreview(){ctx.save();ctx.globalAlpha=.18;ctx.translate(vw/2-camera.x*zoom,vh/2-camera.y*zoom);ctx.scale(zoom,zoom);ctx.strokeStyle='#d4b36a';ctx.lineWidth=3;pathPoly(starPoints(WORLD.cx,WORLD.cy,500,395));ctx.stroke();ctx.restore()}
 const vignetteEl=$('vignette');
-function loop(now){const dt=Math.min((now-last)/1000||0,.033);last=now;if(state==='playing')update(dt);draw();if(vignetteEl)vignetteEl.classList.toggle('hurt',state==='playing'&&!!player&&player.hp>0&&player.hp/player.max<.3);requestAnimationFrame(loop)}
+let runtimeError=null;
+function loop(now){
+ const dt=Math.min((now-last)/1000||0,.033);last=now;
+ if(!runtimeError){
+  try{
+   if(state==='playing')update(dt);
+   draw();
+   if(vignetteEl)vignetteEl.classList.toggle('hurt',state==='playing'&&!!player&&player.hp>0&&player.hp/player.max<.3);
+  }catch(err){
+   runtimeError=err;state='error';console.error('Couto Misto runtime stopped safely:',err);
+   ui.toast.textContent='GAME ERROR · OPEN THE BROWSER CONSOLE AND RELOAD';ui.toast.classList.add('show');
+   ui.pause.classList.add('hidden');ui.over.classList.remove('hidden');
+   $('over-eyebrow').textContent='A GAME ERROR OCCURRED';$('over-title').textContent='BATTLE PAUSED';
+   $('final-stats').textContent='The game stopped safely instead of freezing. Please reload and report the console error.';
+   $('again-btn').textContent='RELOAD DEFENCE';
+  }
+ }
+ requestAnimationFrame(loop);
+}
 function canvasPos(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
 function setZoom(next){const oldZoom=zoom;zoom=clamp(next,.65,1.8);if(zoom===oldZoom)return;camera.x=clamp(camera.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(camera.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));}
 $('zoom-in').addEventListener('click',()=>setZoom(zoom*1.2));
