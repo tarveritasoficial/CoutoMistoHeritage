@@ -351,6 +351,7 @@ function chooseSheepTarget(s){
  }
  s.target={x:s.home.x,y:s.home.y};s.think=rand(3,5);
 }
+function damageSheep(s,amount){if(!s||s.hp<=0)return;s.hp=Math.max(0,s.hp-amount);s.flash=.12;for(let i=0;i<(s.hp<=0?9:3);i++)particles.push({x:s.x+rand(-7,7),y:s.y+rand(-5,5),vx:rand(-45,45),vy:rand(-45,45),life:rand(.2,.5),max:.5,color:i%2?'#e7dfc9':'#8e806b',r:rand(1.5,3.5)});if(s.hp<=0)s.dead=true;}
 function updateSheep(dt){
  for(const s of sheep){
   s.phase+=dt*5;
@@ -364,6 +365,7 @@ function updateSheep(dt){
   s.dir=a;moveLand(s,Math.cos(a)*step,Math.sin(a)*step);
   if(Math.hypot(s.x-ox,s.y-oy)<step*.35){chooseSheepTarget(s);s.pause=rand(.4,1.4)}
  }
+ sheep=sheep.filter(s=>!s.dead);
 }
 function victory(){
  state='victory';ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');
