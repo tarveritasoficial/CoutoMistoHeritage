@@ -108,7 +108,7 @@ function riverBridgeAt(x,y,r){
  for(const b of r.bridges){
   const a=b.angle||0,dx=x-b.x,dy=y-b.y;
   const lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);
-  if(Math.abs(lx)<=104&&Math.abs(ly)<=138)return b;
+  if(Math.abs(lx)<=40&&Math.abs(ly)<=82)return b;
  }
  return null;
 }
@@ -141,12 +141,12 @@ function riverRouteTarget(from,to){
   if(!a||!b)continue;
   const crossA=a.tx*(from.y-a.y)-a.ty*(from.x-a.x),crossB=b.tx*(to.y-b.y)-b.ty*(to.x-b.x);
   const currentBridge=riverBridgeAt(from.x,from.y,r);
-  // While on a bridge, keep the unit on the deck centreline and guide it
-  // all the way to the far bank before resuming its original destination.
   if(currentBridge){
+   // The exit waypoint is deliberately beyond the deck AND outside the
+   // bridge collision rectangle, so the AI can leave bridge mode.
    const nx=-Math.sin(currentBridge.angle||0),ny=Math.cos(currentBridge.angle||0);
-   const side=Math.sign(crossA)||-Math.sign(crossB)||1;
-   return {x:currentBridge.x-nx*side*106,y:currentBridge.y-ny*side*106};
+   const side=Math.sign(crossA)||1;
+   return {x:currentBridge.x-nx*side*112,y:currentBridge.y-ny*side*112};
   }
   if(crossA*crossB>=0)continue;
   let bridge=r.bridges[0],best=Infinity;
@@ -156,9 +156,9 @@ function riverRouteTarget(from,to){
   }
   const nx=-Math.sin(bridge.angle||0),ny=Math.cos(bridge.angle||0);
   const side=Math.sign(crossA)||1;
-  const entry={x:bridge.x+nx*side*106,y:bridge.y+ny*side*106};
-  // First line up with the entrance, then target the deck centre. Once the
-  // unit enters the wider collision corridor, the branch above guides it out.
+  const entry={x:bridge.x+nx*side*100,y:bridge.y+ny*side*100};
+  // Approach the near bank, then the deck centre. The far-bank waypoint
+  // above is outside the deck corridor, preventing a waypoint deadlock.
   return dist(from,entry)>18?entry:bridge;
  }
  return to;
@@ -508,18 +508,18 @@ function drawRiversAndBridges(){
 }
 function drawWoodenBridge(x,y,rotation=0){
  ctx.save();ctx.translate(x,y);ctx.rotate(rotation);
- // Broad military bridge deck for reliable troop movement. Centre and angle unchanged.
- ctx.fillStyle='rgba(26,31,24,.42)';ctx.fillRect(-116,-148,232,296);
- ctx.fillStyle='#706b58';ctx.fillRect(-112,-144,12,288);ctx.fillRect(100,-144,12,288);
- ctx.fillStyle='#60472e';ctx.fillRect(-100,-144,200,288);
- ctx.fillStyle='#9a7447';ctx.fillRect(-94,-144,188,288);
- for(let yy=-138;yy<=138;yy+=15){
-  ctx.fillStyle=(yy/15)%2?'#a98553':'#8d6b42';ctx.fillRect(-92,yy,184,12);
-  ctx.strokeStyle='rgba(54,39,25,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-91,yy+12);ctx.lineTo(91,yy+12);ctx.stroke();
+ // Restore compact bridge dimensions; fixed centre and vertical orientation unchanged.
+ ctx.fillStyle='rgba(26,31,24,.38)';ctx.fillRect(-39,-70,78,140);
+ ctx.fillStyle='#706b58';ctx.fillRect(-36,-67,8,134);ctx.fillRect(28,-67,8,134);
+ ctx.fillStyle='#60472e';ctx.fillRect(-29,-67,58,134);
+ ctx.fillStyle='#9a7447';ctx.fillRect(-25,-67,50,134);
+ for(let yy=-62;yy<=62;yy+=13){
+  ctx.fillStyle=(yy/13)%2?'#a98553':'#8d6b42';ctx.fillRect(-24,yy,48,10);
+  ctx.strokeStyle='rgba(54,39,25,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-23,yy+10);ctx.lineTo(23,yy+10);ctx.stroke();
  }
- ctx.strokeStyle='#4e3927';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-100,-132);ctx.lineTo(-100,132);ctx.moveTo(100,-132);ctx.lineTo(100,132);ctx.stroke();
- ctx.strokeStyle='#c09a62';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-100,-118);ctx.lineTo(-100,118);ctx.moveTo(100,-118);ctx.lineTo(100,118);ctx.stroke();
- for(const yy of [-132,-66,0,66,132]){ctx.fillStyle='#62472d';ctx.fillRect(-106,yy-4,12,10);ctx.fillRect(94,yy-4,12,10)}
+ ctx.strokeStyle='#4e3927';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-29,-58);ctx.lineTo(-29,58);ctx.moveTo(29,-58);ctx.lineTo(29,58);ctx.stroke();
+ ctx.strokeStyle='#c09a62';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-29,-48);ctx.lineTo(-29,48);ctx.moveTo(29,-48);ctx.lineTo(29,48);ctx.stroke();
+ for(const yy of [-58,-20,20,58]){ctx.fillStyle='#62472d';ctx.fillRect(-32,yy-3,7,8);ctx.fillRect(25,yy-3,7,8)}
  ctx.restore();
 }
 function drawEnemyCamp(c){
