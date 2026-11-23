@@ -863,68 +863,26 @@ const CART_ROAD_ROUTES=buildCartRoadRoutes();
 function drawCartRoads(project,scale){
  const routes=CART_ROAD_ROUTES,p=project||((p)=>p);
  ctx.lineCap='round';ctx.lineJoin='round';
- for(const r of routes){
-  ctx.beginPath();
-  if(r.edge){const a=p(r.start),b=p(r.control),c=p(r.finish);ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(b.x,b.y,c.x,c.y)}
-  else{const a=p(r.start),b=p(r.approach),c=p(r.entry),d=p(r.exit),e=p(r.departure),f=p(r.finish);ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(b.x,b.y,c.x,c.y);ctx.lineTo(d.x,d.y);ctx.quadraticCurveTo(e.x,e.y,f.x,f.y)}
-  ctx.strokeStyle='#66563b';ctx.lineWidth=38*scale;ctx.stroke();
-  ctx.strokeStyle='#a99a70';ctx.lineWidth=28*scale;ctx.stroke();
-  ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2*scale;ctx.setLineDash([10*scale,15*scale]);ctx.stroke();
+ routes.forEach((r,index)=>{
+  const drawPath=()=>{
+   ctx.beginPath();
+   if(r.edge){const a=p(r.start),b=p(r.control),c=p(r.finish);ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(b.x,b.y,c.x,c.y)}
+   else{const a=p(r.start),b=p(r.approach),c=p(r.entry),d=p(r.exit),e=p(r.departure),f=p(r.finish);ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(b.x,b.y,c.x,c.y);ctx.lineTo(d.x,d.y);ctx.quadraticCurveTo(e.x,e.y,f.x,f.y)}
+  };
+  const width=(index%3===0?1.08:index%3===1?.92:1)*scale;
+  // Uneven, dark verges and layered compacted earth create an old muddy cart track.
+  drawPath();ctx.strokeStyle='rgba(42,37,27,.58)';ctx.lineWidth=43*width;ctx.stroke();
+  drawPath();ctx.strokeStyle='#665239';ctx.lineWidth=36*width;ctx.stroke();
+  drawPath();ctx.strokeStyle=index%2?'#89724e':'#927b54';ctx.lineWidth=27*width;ctx.stroke();
+  // Pale worn centre, with broken muddy patches instead of a painted road marking.
+  drawPath();ctx.strokeStyle='rgba(180,157,112,.30)';ctx.lineWidth=12*width;ctx.setLineDash([34*scale,22*scale,12*scale,18*scale]);ctx.lineDashOffset=index*13*scale;ctx.stroke();
+  // Two dark wheel ruts, deliberately irregular and intermittent.
+  drawPath();ctx.strokeStyle='rgba(52,43,31,.58)';ctx.lineWidth=2.8*scale;ctx.setLineDash([18*scale,13*scale,7*scale,21*scale]);ctx.lineDashOffset=index*7*scale;ctx.stroke();
+  drawPath();ctx.strokeStyle='rgba(194,170,124,.34)';ctx.lineWidth=1.4*scale;ctx.setLineDash([5*scale,31*scale,12*scale,20*scale]);ctx.lineDashOffset=index*17*scale;ctx.stroke();
   ctx.setLineDash([]);
- }
- ctx.lineCap='butt';ctx.lineJoin='miter';
+ });
+ ctx.lineCap='butt';ctx.lineJoin='miter';ctx.lineDashOffset=0;
 }
-// Small countryside farms are placed well away from the river corridor, bridges,
- // enemy camps and the central fortress. They are decorative and never alter gameplay.
-const FARM_SITES=[
- {x:1320,y:390,turn:-.12,kind:0},
- {x:2860,y:390,turn:.16,kind:1},
- {x:1260,y:3170,turn:.18,kind:1},
- {x:2910,y:3160,turn:-.14,kind:0},
- {x:760,y:2110,turn:.28,kind:0},
- {x:3160,y:2050,turn:-.22,kind:1}
-];
-function farmSiteSafe(f){
- if(f.x<260||f.y<260||f.x>WORLD.w-260||f.y>WORLD.h-260)return false;
- if(Math.hypot(f.x-WORLD.cx,f.y-WORLD.cy)<650||riverDistance(f.x,f.y)<230)return false;
- for(const c of CAMP_SITES)if(Math.hypot(f.x-c.x,f.y-c.y)<520)return false;
- for(const r of RIVER_DEFS)for(const b of r.bridges)if(Math.hypot(f.x-b.x,f.y-b.y)<250)return false;
- return true;
-}
-function drawFarm(f){
- if(!farmSiteSafe(f)||!onScreen(f.x,f.y,190))return;
- ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.turn);
- // Worn farmyard clearing and its irregular fence.
- ctx.fillStyle='rgba(73,57,35,.22)';ctx.beginPath();ctx.ellipse(0,0,154,105,-.08,0,Math.PI*2);ctx.fill();
- ctx.strokeStyle='#59472f';ctx.lineWidth=4;ctx.setLineDash([18,7]);ctx.strokeRect(-145,-92,290,184);ctx.setLineDash([]);
- for(const x of [-145,-70,0,70,145])for(const y of [-92,92]){ctx.fillStyle='#6c5435';ctx.fillRect(x-2,y-5,4,13)}
- // Main farmhouse, pitched roof and chimney.
- ctx.fillStyle='#b7a17b';ctx.fillRect(-38,-36,76,57);
- ctx.fillStyle='#6a4932';ctx.beginPath();ctx.moveTo(-47,-35);ctx.lineTo(0,-69);ctx.lineTo(48,-35);ctx.closePath();ctx.fill();
- ctx.fillStyle='#4a3528';ctx.fillRect(18,-66,9,23);
- ctx.fillStyle='#493526';ctx.fillRect(-7,-8,17,29);
- ctx.fillStyle='#d6bd87';ctx.fillRect(-29,-24,13,14);ctx.fillRect(17,-24,13,14);
- // Small barn/shed offset from the house.
- ctx.fillStyle='#8b4d35';ctx.fillRect(66,8,42,34);
- ctx.fillStyle='#583a2b';ctx.beginPath();ctx.moveTo(60,10);ctx.lineTo(87,-10);ctx.lineTo(114,10);ctx.closePath();ctx.fill();
- ctx.fillStyle='#d2b98a';ctx.fillRect(82,22,11,20);
- // Two cultivated plots with irregular crop rows and dark earth.
- const plots=f.kind===0?[[-112,-22,54,73],[8,53,92,28]]:[[-112,48,76,31],[20,-82,94,25]];
- for(const [x,y,w,h] of plots){
-  ctx.fillStyle='#55432d';ctx.fillRect(x,y,w,h);
-  ctx.strokeStyle='#79613a';ctx.lineWidth=1.5;
-  for(let yy=y+5;yy<y+h;yy+=7){ctx.beginPath();ctx.moveTo(x+3,yy);ctx.lineTo(x+w-3,yy+1);ctx.stroke()}
-  ctx.fillStyle='#718047';
-  for(let xx=x+8;xx<x+w;xx+=13)for(let yy=y+6;yy<y+h;yy+=12){ctx.beginPath();ctx.arc(xx,yy,1.8,0,Math.PI*2);ctx.fill()}
- }
- // Haystack, water trough and a short muddy track into the yard.
- ctx.fillStyle='#b49a58';ctx.beginPath();ctx.ellipse(-76,58,17,12,-.2,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='#554b37';ctx.fillRect(111,-55,22,12);ctx.fillStyle='#638080';ctx.fillRect(114,-52,16,6);
- ctx.strokeStyle='#796344';ctx.lineWidth=15;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(0,92);ctx.quadraticCurveTo(18,125,55,151);ctx.stroke();
- ctx.strokeStyle='rgba(190,158,105,.45)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-3,91);ctx.quadraticCurveTo(15,124,52,151);ctx.stroke();
- ctx.restore();
-}
-function drawFarms(){for(const f of FARM_SITES)drawFarm(f)}
 function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
  // Layered meadow colours, grass tufts and small stones make the open field feel lived-in.
  ctx.fillStyle='#65784a';for(let i=0;i<260;i++){const x=(i*197)%WORLD.w,y=(i*317)%WORLD.h;if(!onScreen(x,y,50))continue;const rx=12+(i*17)%24,ry=7+(i*11)%12,rotation=((i*13)%60)/10;ctx.beginPath();ctx.ellipse(x,y,rx,ry,rotation,0,Math.PI*2);ctx.fill()}
