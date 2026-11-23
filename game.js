@@ -14,7 +14,7 @@ const FACTIONS = {
 const keys = Object.create(null), mouse = {x:0,y:0,down:false};
 let escortFormation='wedge';
 let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], cavalryCharges=[], defenders=[], villagers=[], sheep=[], cows=[], chickens=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0, floaters=[];
-const MAX_ACTIVE_ENEMIES=72,MAX_WAVE_ENEMIES=48,MAX_PARTICLES=650,MAX_BULLETS=220;
+const MAX_ACTIVE_ENEMIES=120,MAX_WAVE_ENEMIES=72,MAX_PARTICLES=900,MAX_BULLETS=320;
 const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
 function addParticle(p){if(particles.length<MAX_PARTICLES)particles.push(p)}
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
@@ -522,7 +522,7 @@ function spawnWave(){
  // fewer camps standing means smaller waves
  const active=enemies.reduce((n,e)=>n+(e.hp>0?1:0),0);
  const available=Math.max(0,MAX_ACTIVE_ENEMIES-active);
- const count=Math.min(MAX_WAVE_ENEMIES,available,Math.max(4,Math.ceil((5+Math.min(wave,14)*3)*alive.length/camps.length)));
+ const count=Math.min(MAX_WAVE_ENEMIES,available,Math.max(6,Math.ceil((8+Math.min(wave,14)*4)*alive.length/camps.length)));
  if(count<=0)return;
  for(let i=0;i<count;i++){
   const camp=alive[i%alive.length];let type='rifleman';const roll=Math.random();
@@ -1119,9 +1119,9 @@ function updateDeployment(){
  const invalid=values.some(value=>value<0||value>40);
  const total=values.reduce((sum,value)=>sum+value,0);
  $('deployment-total').textContent=total;
- $('deployment-error').textContent=invalid?'Each role must be between 0 and 40 soldiers.':total===0?'Choose at least one soldier.':total>40?'Maximum deployment is 40 soldiers.':'';
- $('start-btn').disabled=invalid||total===0||total>40;
- document.querySelectorAll('.step').forEach(b=>{const v=Math.floor(Number($(b.dataset.target).value)||0);b.disabled=Number(b.dataset.step)>0?(v>=40||total>=40):v<=0});
+ $('deployment-error').textContent=invalid?'Each role must be between 0 and 40 soldiers.':total===0?'Choose at least one soldier.':total>80?'Maximum deployment is 80 soldiers.':'';
+ $('start-btn').disabled=invalid||total===0||total>80;
+ document.querySelectorAll('.step').forEach(b=>{const v=Math.floor(Number($(b.dataset.target).value)||0);b.disabled=Number(b.dataset.step)>0?(v>=40||total>=80):v<=0});
  document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('on',b.dataset.preset===values.join(',')));
  drawBlueprint(values);
 }
