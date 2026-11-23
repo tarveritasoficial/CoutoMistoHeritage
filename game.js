@@ -504,11 +504,16 @@ function launchCavalryCharge(bridge){
  const target=targets.sort((a,b)=>dist(player,a)-dist(player,b))[0];
  const edgeX=target.x<WORLD.cx?18:WORLD.w-18,edgeY=target.y<WORLD.cy?18:WORLD.h-18;
  const useX=Math.abs(target.x-WORLD.cx)>Math.abs(target.y-WORLD.cy);
- const formation={x:useX?edgeX:target.x,y:useX?target.y:edgeY,dir:angle({x:useX?edgeX:target.x,y:useX?target.y:edgeY},player),members:[],leader:null};
+ // Portuguese cavalry stages at the centre of the western edge, well clear
+ // of the southwest river bend and its bridge. Other factions retain edge spawns.
+ const portuguese=target.faction==='portugal';
+ const spawnX=portuguese?260:(useX?edgeX:target.x);
+ const spawnY=portuguese?1800:(useX?target.y:edgeY);
+ const formation={x:spawnX,y:spawnY,dir:angle({x:spawnX,y:spawnY},player),members:[],leader:null};
  for(let i=0;i<20;i++){
   const spread=(i-9.5)*13;
-  const x=clamp(useX?edgeX:target.x+spread,18,WORLD.w-18);
-  const y=clamp(useX?target.y+spread:edgeY,18,WORLD.h-18);
+  const x=clamp(useX||portuguese?spawnX:target.x+spread,18,WORLD.w-18);
+  const y=clamp(useX||portuguese?spawnY+spread:edgeY,18,WORLD.h-18);
   const h=makeSoldier(x,y,target.faction,'cavalry',false,false);
   h.hp=h.max=105;h.chargeCamp=target;h.chargeSpeed=235;h.attack=rand(.05,.45);h.campGuard=false;
   h.chargeFormation=formation;h.chargeIndex=i;
