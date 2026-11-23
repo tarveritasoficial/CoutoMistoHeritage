@@ -12,7 +12,7 @@ const FACTIONS = {
   england:{name:'England',a:'#b63c3c',b:'#eee9dc',dark:'#702323'}
 };
 const keys = Object.create(null), mouse = {x:0,y:0,down:false};
-let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], defenders=[], villagers=[], sheep=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0, floaters=[];
+let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], defenders=[], villagers=[], sheep=[], cows=[], chickens=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0, floaters=[];
 const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
 window.addEventListener('resize',resize); resize();
@@ -344,6 +344,18 @@ function buildSheep(){
  }
  return flockList;
 }
+function buildFarmAnimals(kind,count){
+ const herd=[];
+ for(let i=0;i<count;i++){let p=null;for(let tries=0;tries<1800&&!p;tries++){const x=rand(170,WORLD.w-170),y=rand(170,WORLD.h-170);if(sheepFieldSafe(x,y))p={x,y}}if(!p)continue;
+ herd.push({kind,x:p.x,y:p.y,hp:kind==='cow'?70:18,max:kind==='cow'?70:18,dead:false,home:{x:p.x,y:p.y},target:{x:p.x,y:p.y},dir:rand(0,Math.PI*2),speed:kind==='cow'?rand(10,16):rand(18,27),pause:rand(0,3),think:rand(2,6),phase:rand(0,Math.PI*2),flash:0,scale:kind==='cow'?rand(.9,1.12):rand(.85,1.15)});
+ }return herd;
+}
+function damageAnimal(a,amount){if(!a||a.hp<=0)return;a.hp=Math.max(0,a.hp-amount);a.flash=.14;for(let i=0;i<(a.hp<=0?10:3);i++)particles.push({x:a.x+rand(-8,8),y:a.y+rand(-6,6),vx:rand(-48,48),vy:rand(-48,48),life:rand(.2,.5),max:.5,color:i%2?'#e7dfc9':'#8e806b',r:rand(1.5,3.5)});if(a.hp<=0)a.dead=true;}
+function updateFarmAnimals(dt,herd){for(const a of herd){a.phase+=dt*4;a.flash=Math.max(0,(a.flash||0)-dt);a.pause=Math.max(0,a.pause-dt);a.think-=dt;if(a.think<=0||dist(a,a.target)<12){let found=false;for(let tries=0;tries<20;tries++){const radius=rand(25,115),dir=rand(0,Math.PI*2),x=a.home.x+Math.cos(dir)*radius,y=a.home.y+Math.sin(dir)*radius;if(sheepFieldSafe(x,y)){a.target={x,y};found=true;break}}a.think=rand(3,7);if(!found)a.target={x:a.home.x,y:a.home.y}}if(a.pause>0)continue;const d=dist(a,a.target);if(d<2)continue;const step=Math.min(d,a.speed*dt),dir=angle(a,a.target),ox=a.x,oy=a.y;a.dir=dir;moveLand(a,Math.cos(dir)*step,Math.sin(dir)*step);if(Math.hypot(a.x-ox,a.y-oy)<step*.35){a.pause=rand(.5,1.5);a.think=0}}return herd.filter(a=>!a.dead);}
+function drawFarmAnimal(a){if(!onScreen(a.x,a.y,42))return;const sc=a.scale||1,bob=Math.sin(a.phase)*.6;ctx.save();ctx.translate(a.x,a.y);ctx.rotate(a.dir||0);ctx.scale(sc,sc);ctx.fillStyle='rgba(22,29,20,.24)';ctx.beginPath();ctx.ellipse(0,8,a.kind==='cow'?21:9,5,0,0,Math.PI*2);ctx.fill();
+if(a.kind==='cow'){ctx.strokeStyle='#51483b';ctx.lineWidth=3;for(const x of [-12,9])for(const y of [-3,5]){ctx.beginPath();ctx.moveTo(x,3+bob);ctx.lineTo(x-1,14);ctx.stroke()}ctx.fillStyle='#eee9dc';ctx.beginPath();ctx.ellipse(-2,-1+bob,20,12,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#51483b';for(const p of [[-12,-5],[-3,2],[8,-5],[10,5]]){ctx.beginPath();ctx.ellipse(p[0],p[1]+bob,4,5,.4,0,Math.PI*2);ctx.fill()}ctx.fillStyle='#eee9dc';ctx.beginPath();ctx.ellipse(17,-3+bob,8,7,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c69a79';ctx.beginPath();ctx.ellipse(22,0+bob,4,3,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#b8a77f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(12,-8+bob);ctx.lineTo(9,-13+bob);ctx.moveTo(18,-9+bob);ctx.lineTo(21,-14+bob);ctx.stroke();}
+else{ctx.strokeStyle='#b78d52';ctx.lineWidth=1.8;for(const x of [-4,3]){ctx.beginPath();ctx.moveTo(x,3+bob);ctx.lineTo(x-1,8);ctx.stroke()}ctx.fillStyle='#f2eee3';ctx.beginPath();ctx.ellipse(-1,0+bob,7,5,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#a88a62';ctx.beginPath();ctx.ellipse(5,-3+bob,4,4,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#d2ad70';ctx.beginPath();ctx.moveTo(7,-7+bob);ctx.lineTo(11,-10+bob);ctx.lineTo(9,-5+bob);ctx.fill();ctx.fillStyle='#c94d35';ctx.beginPath();ctx.moveTo(8,-2+bob);ctx.lineTo(13,-1+bob);ctx.lineTo(8,1+bob);ctx.fill();ctx.fillStyle='#51483b';ctx.beginPath();ctx.arc(7,-4+bob,.8,0,Math.PI*2);ctx.fill();}
+if(a.hp<a.max||a.flash>0){ctx.rotate(-(a.dir||0));const w=a.kind==='cow'?30:18;ctx.fillStyle='#241f19';ctx.fillRect(-w/2,-(a.kind==='cow'?22:14),w,3);ctx.fillStyle=a.hp/a.max>.35?'#8eaf68':'#c65343';ctx.fillRect(-w/2+1,-(a.kind==='cow'?21:13),(w-2)*clamp(a.hp/a.max,0,1),1.5)}ctx.restore();}
 function chooseSheepTarget(s){
  for(let tries=0;tries<24;tries++){
   const radius=rand(35,155),a=rand(0,Math.PI*2),x=s.home.x+Math.cos(a)*radius,y=s.home.y+Math.sin(a)*radius;
@@ -365,7 +377,7 @@ function updateSheep(dt){
   s.dir=a;moveLand(s,Math.cos(a)*step,Math.sin(a)*step);
   if(Math.hypot(s.x-ox,s.y-oy)<step*.35){chooseSheepTarget(s);s.pause=rand(.4,1.4)}
  }
- sheep=sheep.filter(s=>!s.dead);
+ sheep=sheep.filter(s=>!s.dead);cows=updateFarmAnimals(dt,cows);chickens=updateFarmAnimals(dt,chickens);
 }
 function victory(){
  state='victory';ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');
@@ -422,7 +434,7 @@ function reset(){
  const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
  const activeCount=clamp(Math.floor(Number($('active-count').value)||0),0,40);
- walls=buildWalls();waveActive=false;victoryTimer=0;camps=buildCamps();sheep=buildSheep();
+ walls=buildWalls();waveActive=false;victoryTimer=0;camps=buildCamps();sheep=buildSheep();cows=buildFarmAnimals('cow',9);chickens=buildFarmAnimals('chicken',20);
  wallPosts(wallCount).forEach((p,i)=>{
   const g=makeSoldier(p.x,p.y,'couto','rifleman',true,true);g.slot=i;g.home={x:p.x,y:p.y};g.dir=p.a;guards.push(g);
  });
@@ -446,7 +458,7 @@ function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove(
 function gameOver(){state='over';$('over-eyebrow').textContent='THE FORTRESS HAS FALLEN';$('over-title').textContent='DEFEAT';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent='Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length)}
 function reload(){if(player.reload<=0&&player.ammo<player.maxAmmo){player.reload=1.25;toast('Reloading musket…')}}
 function shoot(from,dir,faction,damage=24,speed=520,siege=false){bullets.push({x:from.x+Math.cos(dir)*17,y:from.y+Math.sin(dir)*17,vx:Math.cos(dir)*speed,vy:Math.sin(dir)*speed,life:1.7,faction,damage,r:siege?5:4,siege});for(let i=0;i<4;i++)particles.push({x:from.x+Math.cos(dir)*12,y:from.y+Math.sin(dir)*12,vx:rand(-35,35)+Math.cos(dir)*rand(15,55),vy:rand(-35,35)+Math.sin(dir)*rand(15,55),life:rand(.12,.28),max:.28,color:'#f4d58c',r:rand(1,3)})}
-function sword(){if(player.sword>0)return;player.sword=.42;let hit=0;for(const s of sheep){if(s.hp>0&&dist(player,s)<55&&Math.abs(Math.atan2(Math.sin(angle(player,s)-player.dir),Math.cos(angle(player,s)-player.dir)))<1.25){damageSheep(s,36);hit++}}for(const e of enemies){if(e.hp>0&&dist(player,e)<58&&Math.abs(Math.atan2(Math.sin(angle(player,e)-player.dir),Math.cos(angle(player,e)-player.dir)))<1.25){e.hp-=48;hit++ ;if(e.hp<=0)kill(e)}}for(const c of camps){if(!c.destroyed&&dist(player,c)<c.r+40){damageCamp(c,70);hit++}}if(hit)toast('Sword strike!')}
+function sword(){if(player.sword>0)return;player.sword=.42;let hit=0;for(const s of [...sheep,...cows,...chickens]){if(s.hp>0&&dist(player,s)<(s.kind==='cow'?62:48)&&Math.abs(Math.atan2(Math.sin(angle(player,s)-player.dir),Math.cos(angle(player,s)-player.dir)))<1.25){damageAnimal(s,36);hit++}}for(const e of enemies){if(e.hp>0&&dist(player,e)<58&&Math.abs(Math.atan2(Math.sin(angle(player,e)-player.dir),Math.cos(angle(player,e)-player.dir)))<1.25){e.hp-=48;hit++ ;if(e.hp<=0)kill(e)}}for(const c of camps){if(!c.destroyed&&dist(player,c)<c.r+40){damageCamp(c,70);hit++}}if(hit)toast('Sword strike!')}
 function spawnWave(){
  const alive=camps.filter(c=>!c.destroyed);if(!alive.length)return;
  wave++;ui.wave.textContent=wave;banner('ENEMY WAVE '+wave);
@@ -533,7 +545,7 @@ for(const e of enemies)if(e.hp>0&&e.type!=='cannon')pushOutOfWalls(e,unitRadius(
 for(const g of escorts)if(g.hp>0)pushOutOfWalls(g,9,true);
 for(const d of defenders)if(d.hp>0)pushOutOfWalls(d,9,true);
 for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
-for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of sheep){if(s.hp>0&&dist(b,s)<13){damageSheep(s,b.damage);b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of sheep){if(s.hp>0&&dist(b,s)<13){damageSheep(s,b.damage);b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
+for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of [...sheep,...cows,...chickens]){if(s.hp>0&&dist(b,s)<(s.kind==='cow'?19:13)){damageAnimal(s,b.damage);b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of sheep){if(s.hp>0&&dist(b,s)<13){damageSheep(s,b.damage);b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
 for(const f of floaters){f.y-=26*dt;f.life-=dt}floaters=floaters.filter(f=>f.life>0);
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(enemies.some(e=>dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
@@ -822,7 +834,7 @@ if(c.hp<c.max){ctx.fillStyle='#251b16';ctx.fillRect(-11,-27,22,3);ctx.fillStyle=
 ctx.restore()}
 function draw(){ctx.clearRect(0,0,vw,vh);drawTerrain();ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
 for(const v of villagers){ctx.fillStyle='#d1c19c';ctx.beginPath();ctx.arc(v.x,v.y,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#594d3b';ctx.fillRect(v.x-3,v.y-3,6,5)}
-for(const s of sheep)drawSheep(s);
+for(const s of sheep)drawSheep(s);for(const a of cows)drawFarmAnimal(a);for(const a of chickens)drawFarmAnimal(a);
 for(const g of guards){if(g.hp>0)drawCharacter(g)}for(const g of escorts){if(g.hp>0)drawCharacter(g)}for(const d of defenders){if(d.hp>0)drawCharacter(d)}for(const e of enemies)if(e.hp>0)drawCharacter(e);drawCharacter(player,true);
 for(const b of bullets){ctx.fillStyle=b.faction==='enemy'?'#e76d43':'#f4df9e';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()}
 for(const p of particles){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
