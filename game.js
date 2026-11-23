@@ -242,20 +242,30 @@ function friendlyBridgeContains(x,y,b,radius=0){
 function friendlyMoveBridge(u,target,len){
  let route=u.friendlyBridgeRoute;
  if(route){
-  const b=route.bridge,radius=9,goal=route.stage==='entry'?route.entry:route.exit;
+  const b=route.bridge,radius=9;
+  const goal=route.stage==='entry'?route.entry:route.exit;
   if(dist(u,goal)<=Math.max(7,radius*.45)){
-   if(route.stage==='entry'){route.stage='cross'}
-   else{u.friendlyBridgeRoute=null;return false}
+   if(route.stage==='entry')route.stage='cross';
+   else if(route.stage==='cross')route.stage='exit';
+   else if(!riverBlocked(u.x,u.y)&&riverDistance(u.x,u.y)>=88){
+    u.friendlyBridgeRoute=null;
+    u.friendlyBridgeCooldownUntil=elapsed+1.0;
+    return true;
+   }
   }
+  // Keep the original crossing direction until the unit is fully on dry land.
   const nextGoal=route.stage==='entry'?route.entry:route.exit;
   const d=dist(u,nextGoal),step=Math.min(len,d),a=angle(u,nextGoal),steps=Math.max(1,Math.ceil(step/3));
   for(let i=0;i<steps;i++){
    const nx=u.x+Math.cos(a)*step/steps,ny=u.y+Math.sin(a)*step/steps;
-   if(riverBlocked(nx,ny)&&!friendlyBridgeContains(nx,ny,b,radius+4))break;
+   if(riverBlocked(nx,ny)&&!friendlyBridgeContains(nx,ny,b,radius+8))break;
    u.x=nx;u.y=ny;
   }
   return true;
  }
+ // Briefly hold the completed direction so a moving player/formation slot
+ // cannot immediately make the unit select the opposite bank again.
+ if(elapsed<(u.friendlyBridgeCooldownUntil||0))return true;
  for(let i=0;i<RIVER_DEFS.length;i++){
   const river=RIVER_DEFS[i],from=riverNearestPoint(RIVER_LINES[i],u.x,u.y),to=riverNearestPoint(RIVER_LINES[i],target.x,target.y);
   if(!from||!to)continue;
@@ -268,17 +278,16 @@ function friendlyMoveBridge(u,target,len){
    if(score<best){best=score;bridge=candidate}
   }
   const a=bridge.angle||0,nx=-Math.sin(a),ny=Math.cos(a),side=Math.sign(sideA)||1;
-  u.friendlyBridgeRoute={bridge,entry:{x:bridge.x+nx*side*88,y:bridge.y+ny*side*88},exit:{x:bridge.x-nx*side*88,y:bridge.y-ny*side*88},stage:'entry'};
+  // The exit is deliberately well beyond the water collision band.
+  u.friendlyBridgeRoute={bridge,entry:{x:bridge.x+nx*side*88,y:bridge.y+ny*side*88},exit:{x:bridge.x-nx*side*132,y:bridge.y-ny*side*132},stage:'entry'};
   return friendlyMoveBridge(u,target,len);
  }
  return false;
 }
 function moveToward(u,p,len){
- // Friendly AI follows the same committed bridge route used by enemies.
- // This prevents the ordinary river collision/waypoint logic from stopping
- // escorts when they follow the player across a bridge.
- if(u.friendly&&enemyMoveBridge(u,p,len)){
-  const route=u.bridgeRoute;
+ // Friendly troops use their own locked route; enemy route state is never shared.
+ if(u.friendly&&friendlyMoveBridge(u,p,len)){
+  const route=u.friendlyBridgeRoute;
   u.dir=angle(u,route?(route.stage==='entry'?route.entry:route.exit):p);
   return u.dir;
  }
