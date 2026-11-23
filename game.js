@@ -364,7 +364,11 @@ for(const e of enemies){
  if(e.hp<=0)continue;
  e.attack-=dt;
  if(e.campGuard){campGuardAI(e,dt);continue}
- const target=nearestFriendly(e)||{x:WORLD.cx,y:WORLD.cy};
+ // Wave enemies assault the fortress by default. They only divert to the
+ // player when the player comes within close engagement range, then resume
+ // the fortress assault once the player moves away.
+ const playerDistance=dist(e,player);
+ const target=playerDistance<240?player:{x:WORLD.cx,y:WORLD.cy};
  const d=dist(e,target);e.dir=angle(e,target);
  if(e.type==='cannon'){
   // siege gun: shells are stopped by the walls and batter them
