@@ -879,8 +879,8 @@ victoryVideo.addEventListener('error',()=>{if(state==='victory'){toast('Victory 
 const trailerScreen=$('trailer-screen'),trailerVideo=$('trailer-video'),trailerSound=$('trailer-sound');
 function finishTrailer(){if(!trailerScreen.classList.contains('hidden')){trailerScreen.classList.add('hidden');trailerVideo.pause();ui.menu.classList.remove('hidden');state='menu';last=performance.now()}}
 $('trailer-skip').addEventListener('click',finishTrailer);
-$('trailer-sound').addEventListener('click',()=>{trailerVideo.muted=!trailerVideo.muted;trailerSound.textContent=trailerVideo.muted?'ENABLE SOUND':'MUTE SOUND';if(trailerVideo.paused)trailerVideo.play().catch(()=>{})});
+$('trailer-sound').addEventListener('click',()=>{if(trailerVideo.error||trailerVideo.readyState===0){trailerVideo.muted=true;trailerSound.textContent='LOADING…';trailerVideo.load();trailerVideo.play().then(()=>{trailerSound.textContent='ENABLE SOUND'}).catch(()=>{trailerSound.textContent='RETRY INTRO'});return;}trailerVideo.muted=!trailerVideo.muted;trailerSound.textContent=trailerVideo.muted?'ENABLE SOUND':'MUTE SOUND';if(trailerVideo.paused)trailerVideo.play().catch(()=>{trailerSound.textContent='RETRY INTRO'})});
 trailerVideo.addEventListener('ended',finishTrailer);
-trailerVideo.addEventListener('error',()=>{finishTrailer();toast('Trailer could not be loaded. You can still play.')});
+trailerVideo.addEventListener('error',()=>{trailerSound.textContent='RETRY INTRO';const caption=trailerScreen.querySelector('.trailer-caption');if(caption)caption.textContent='INTRO VIDEO COULD NOT LOAD · TAP RETRY OR SKIP';});trailerVideo.addEventListener('canplay',()=>{trailerSound.textContent='ENABLE SOUND';const caption=trailerScreen.querySelector('.trailer-caption');if(caption)caption.textContent='HOLD THE FORTRESS · DEFEND YOUR HERITAGE'});
 reset();setTimeout(()=>{ui.loading.classList.add('hidden');trailerScreen.classList.remove('hidden');state='menu';last=performance.now();trailerVideo.muted=true;trailerVideo.play().catch(()=>{trailerSound.textContent='PLAY TRAILER'});requestAnimationFrame(loop)},650);
 })();
