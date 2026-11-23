@@ -525,7 +525,7 @@ function launchCavalryCharge(bridge){
 }
 function updateCavalryCharges(dt){}
 
-function start(){$('victory-video').pause();$('victory-video').currentTime=0;reset();state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');ui.mobile.classList.remove('hidden');banner('DEFEND THE STAR FORTRESS');toast('The gates open for you: leave the fort and destroy the enemy camps');last=performance.now()}
+function start(){$('victory-video').pause();$('victory-video').currentTime=0;reset();spawnOpeningArmy();state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');ui.mobile.classList.remove('hidden');banner('DEFEND THE STAR FORTRESS');toast('The gates open for you: leave the fort and destroy the enemy camps');last=performance.now()}
 function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove('hidden')}else if(state==='paused'){state='playing';ui.pause.classList.add('hidden');last=performance.now()}}function mainMenu(){$('victory-video').pause();$('victory-video').currentTime=0;state='menu';ui.menu.classList.remove('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');last=performance.now()}
 function gameOver(){state='over';$('over-eyebrow').textContent='THE FORTRESS HAS FALLEN';$('over-title').textContent='DEFEAT';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent='Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length)}
 function reload(){if(player.reload<=0&&player.ammo<player.maxAmmo){player.reload=1.25;toast('Reloading musket…')}}
@@ -552,6 +552,34 @@ function spawnWave(){
  }
  if(wave>=4&&wave%2===0&&active+count<MAX_ACTIVE_ENEMIES){const camp=alive[Math.floor(rand(0,alive.length))],a=Math.atan2(camp.y-WORLD.cy,camp.x-WORLD.cx),cr=rand(580,640),e=makeSoldier(WORLD.cx+Math.cos(a)*cr+rand(-70,70),WORLD.cy+Math.sin(a)*cr+rand(-70,70),camp.faction,'cannon',false);e.hp=130;e.max=130;enemies.push(e)}
  spawnClock=0;waveActive=true;
+}
+// One scripted opening assault: deployed once by start(), never by spawnWave().
+function spawnOpeningArmy(){
+ const faction='france',groups=new Map(),soldierTypes=[
+  'swordsman','swordsman','swordsman','swordsman','swordsman','swordsman',
+  'spearman','spearman','spearman','spearman','spearman','spearman',
+  'rifleman','rifleman','rifleman','rifleman','rifleman','rifleman',
+  'swordsman','swordsman','spearman','spearman','rifleman','rifleman',
+  'swordsman','swordsman','spearman','spearman','rifleman','rifleman',
+  'swordsman','swordsman','spearman','spearman','rifleman','rifleman',
+  'swordsman','spearman','rifleman','swordsman'
+ ];
+ for(let i=0;i<soldierTypes.length;i++){
+  const groupIndex=Math.floor(i/6),gx=610-(groupIndex%2)*55,gy=1420+groupIndex*112;
+  const e=makeSoldier(gx+rand(-22,22),gy+rand(-22,22),faction,soldierTypes[i],false);
+  let formation=groups.get(groupIndex);
+  if(!formation){formation={members:[],leader:null,x:e.x,y:e.y,dir:0,kind:groupIndex%2?'line':'wedge'};groups.set(groupIndex,formation)}
+  e.waveFormation=formation;e.waveFormationIndex=formation.members.length;
+  formation.members.push(e);if(!formation.leader)formation.leader=e;
+  enemies.push(e);
+ }
+ // Artillery begins behind the infantry and advances into firing range before opening fire.
+ for(let i=0;i<8;i++){
+  const e=makeSoldier(420+rand(-18,18),1260+i*150+rand(-20,20),faction,'cannon',false);
+  e.hp=e.max=145;e.attack=rand(.5,2.2);e.openingArtillery=true;enemies.push(e);
+ }
+ banner('OPENING ASSAULT · 40 SOLDIERS · 8 CANNONS');
+ toast('The French opening army is advancing from the western fields');
 }
 function kill(e){if(e.dead)return;e.dead=true;const pts=e.type==='elephant'?120:e.type==='cavalry'?55:25;score+=pts;floaters.push({x:e.x,y:e.y-12,text:'+'+pts,life:1,max:1});for(let i=0;i<9;i++)addParticle({x:e.x,y:e.y,vx:rand(-80,80),vy:rand(-80,80),life:rand(.25,.65),max:.65,color:i%2?'#b8a27a':'#6e3d32',r:rand(2,5)})}
 function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
@@ -677,8 +705,9 @@ for(const e of enemies){
  const target=playerDistance<240?player:{x:WORLD.cx,y:WORLD.cy};
  const d=dist(e,target);e.dir=angle(e,target);
  if(e.type==='cannon'){
-  // siege gun: shells are stopped by the walls and batter them
-  if(e.attack<=0&&d<420){shoot(e,e.dir,'enemy',30,285,true);e.attack=3.1}
+  // Opening artillery advances from the western staging line, then holds siege range.
+  if(d>390)moveEnemyToward(e,target,36*dt);
+  else if(e.attack<=0){shoot(e,e.dir,'enemy',30,285,true);e.attack=3.1}
   continue;
  }
  const rad=unitRadius(e),inside=insideFort(e),coreDistance=Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy);
@@ -713,10 +742,12 @@ for(const e of enemies)if(e.hp>0&&e.type!=='cannon')pushOutOfWalls(e,unitRadius(
 for(const g of escorts)if(g.hp>0)pushOutOfWalls(g,9,true);
 
 for(const d of defenders)if(d.hp>0)pushOutOfWalls(d,9,true);
-for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
-for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of friendlyUnits){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of farmAnimals){if(s.hp>0&&dist(b,s)<(s.kind==='cow'?19:13)){damageAnimal(s,b.damage);b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of farmAnimals){if(s.hp>0&&dist(b,s)<(s.kind==='cow'?19:13)){damageAnimal(s,b.damage);b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
-for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
-for(const f of floaters){f.y-=26*dt;f.life-=dt}floaters=floaters.filter(f=>f.life>0);
+for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}
+let aliveEnemyCount=0;for(const e of enemies)if(e.hp>0)enemies[aliveEnemyCount++]=e;enemies.length=aliveEnemyCount;
+for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of friendlyUnits){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of farmAnimals){if(s.hp>0&&dist(b,s)<(s.kind==='cow'?19:13)){damageAnimal(s,b.damage);b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of farmAnimals){if(s.hp>0&&dist(b,s)<(s.kind==='cow'?19:13)){damageAnimal(s,b.damage);b.life=0;break}}}}
+let liveBulletCount=0;for(const b of bullets)if(b.life>0)bullets[liveBulletCount++]=b;bullets.length=liveBulletCount;
+for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}let liveParticleCount=0;for(const p of particles)if(p.life>0)particles[liveParticleCount++]=p;particles.length=liveParticleCount;
+for(const f of floaters){f.y-=26*dt;f.life-=dt}let liveFloaterCount=0;for(const f of floaters)if(f.life>0)floaters[liveFloaterCount++]=f;floaters.length=liveFloaterCount;
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(!v.panic&&enemies.some(e=>e.hp>0&&dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
 farmAnimals=sheep.concat(cows,chickens);if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));if(hudRefreshTimer>=.12){hudRefreshTimer=0;updateHud()}}
 function eliteDamage(){return 24}
