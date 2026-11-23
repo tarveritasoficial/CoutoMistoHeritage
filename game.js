@@ -88,7 +88,13 @@ const RIVER_DEFS=[
   {x:3089,y:1000,angle:0},
   {x:3600,y:1600,angle:Math.PI/2},
   {x:3600,y:2300,angle:Math.PI/2}
- ]}
+ ]},
+ // Southwest channel: enters from the west, rounds a broad smooth bend,
+ // then follows the southern map edge and flows off-screen.
+ {curves:[
+  [[-100,2600],[0,2910],[70,3300],[300,3400]],
+  [[300,3400],[530,3500],[1250,3570],[2200,3605]]
+ ],bridges:[]}
 ];
 function riverCurvePoints(r){
  const out=[];
