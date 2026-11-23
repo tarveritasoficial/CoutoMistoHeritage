@@ -12,7 +12,7 @@ const FACTIONS = {
   england:{name:'England',a:'#b63c3c',b:'#eee9dc',dark:'#702323'}
 };
 const keys = Object.create(null), mouse = {x:0,y:0,down:false};
-let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], defenders=[], villagers=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0, floaters=[];
+let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], defenders=[], villagers=[], sheep=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, touchFire=false, idCounter=0, floaters=[];
 const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
 window.addEventListener('resize',resize); resize();
@@ -313,6 +313,58 @@ function updateCamps(dt){
   if(c.respawn<=0){c.respawn=20;const n=enemies.filter(e=>e.camp===c&&e.hp>0).length;if(n<CAMP_GARRISON&&dist(player,c)>420)addCampGuard(c,n)}
  }
 }
+// ---------- Peaceful wildlife: sheep grazing in the open fields ----------
+function sheepFieldSafe(x,y){
+ if(x<150||y<150||x>WORLD.w-150||y>WORLD.h-150)return false;
+ if(Math.hypot(x-WORLD.cx,y-WORLD.cy)<570)return false;
+ if(riverDistance(x,y)<158)return false;
+ for(const c of CAMP_SITES)if(Math.hypot(x-c.x,y-c.y)<540)return false;
+ return true;
+}
+function buildSheep(){
+ const flockList=[];
+ // Several small flocks are scattered through the meadows, never beside enemy camps or the keep.
+ for(let f=0;f<6;f++){
+  let home=null;
+  for(let tries=0;tries<1800&&!home;tries++){
+   const x=rand(170,WORLD.w-170),y=rand(170,WORLD.h-170);
+   if(sheepFieldSafe(x,y))home={x,y};
+  }
+  if(!home)continue;
+  const count=3+(f%2);
+  for(let i=0;i<count;i++){
+   let p=null;
+   for(let tries=0;tries<80&&!p;tries++){
+    const x=home.x+rand(-62,62),y=home.y+rand(-48,48);
+    if(sheepFieldSafe(x,y))p={x,y};
+   }
+   if(!p)continue;
+   flockList.push({x:p.x,y:p.y,home:{x:home.x,y:home.y},target:{x:home.x,y:home.y},dir:rand(0,Math.PI*2),speed:rand(17,25),pause:rand(0,2.5),think:rand(2,5),wool:rand(.88,1.12),phase:rand(0,Math.PI*2)});
+  }
+ }
+ return flockList;
+}
+function chooseSheepTarget(s){
+ for(let tries=0;tries<24;tries++){
+  const radius=rand(35,155),a=rand(0,Math.PI*2),x=s.home.x+Math.cos(a)*radius,y=s.home.y+Math.sin(a)*radius;
+  if(sheepFieldSafe(x,y)){s.target={x,y};s.think=rand(3,7);return}
+ }
+ s.target={x:s.home.x,y:s.home.y};s.think=rand(3,5);
+}
+function updateSheep(dt){
+ for(const s of sheep){
+  s.phase+=dt*5;
+  s.pause=Math.max(0,s.pause-dt);
+  s.think-=dt;
+  if(s.think<=0||dist(s,s.target)<13)chooseSheepTarget(s);
+  if(s.pause>0)continue;
+  const d=dist(s,s.target);
+  if(d<2)continue;
+  const step=Math.min(d,s.speed*dt),a=angle(s,s.target),ox=s.x,oy=s.y;
+  s.dir=a;moveLand(s,Math.cos(a)*step,Math.sin(a)*step);
+  if(Math.hypot(s.x-ox,s.y-oy)<step*.35){chooseSheepTarget(s);s.pause=rand(.4,1.4)}
+ }
+}
 function victory(){
  state='victory';ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');
  const alive=guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length;
@@ -364,11 +416,11 @@ function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){ret
 function reset(){
  camera.x=clamp(WORLD.cx,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(WORLD.cy,vh/(2*zoom),WORLD.h-vh/(2*zoom));
  wave=0;score=0;fortress=100;elapsed=0;spawnClock=0;waveGap=2;
- enemies=[];bullets=[];particles=[];floaters=[];villagers=[];guards=[];escorts=[];defenders=[];idCounter=0;
+ enemies=[];bullets=[];particles=[];floaters=[];villagers=[];sheep=[];guards=[];escorts=[];defenders=[];idCounter=0;
  const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
  const activeCount=clamp(Math.floor(Number($('active-count').value)||0),0,40);
- walls=buildWalls();waveActive=false;victoryTimer=0;camps=buildCamps();
+ walls=buildWalls();waveActive=false;victoryTimer=0;camps=buildCamps();sheep=buildSheep();
  wallPosts(wallCount).forEach((p,i)=>{
   const g=makeSoldier(p.x,p.y,'couto','rifleman',true,true);g.slot=i;g.home={x:p.x,y:p.y};g.dir=p.a;guards.push(g);
  });
@@ -416,7 +468,7 @@ const aim=worldPoint(mouse.x,mouse.y);if(mouse.x||mouse.y)player.dir=angle(playe
 if(player.reload>0){player.reload-=dt;if(player.reload<=0){player.ammo=player.maxAmmo;toast('Musket reloaded')}}if((mouse.down||touchFire)&&player.fire<=0&&player.reload<=0){if(player.ammo>0){shoot(player,player.dir,'couto',40,760);player.ammo--;player.fire=.28}else reload()}
 if(cannonCooldown>0)cannonCooldown-=dt;
 if(!enemies.some(e=>!e.campGuard)){if(waveActive){waveActive=false;repairWalls()}spawnClock+=dt;if(spawnClock>waveGap)spawnWave()}else spawnClock=0;
-for(const w of walls)w.flash=Math.max(0,w.flash-dt);updateCamps(dt);
+for(const w of walls)w.flash=Math.max(0,w.flash-dt);updateCamps(dt);updateSheep(dt);
 for(const g of guards){if(g.hp<=0)continue;const target=nearestEnemy(g,215);if(target){g.dir=angle(g,target);g.attack-=dt;if(g.attack<=0){shoot(g,g.dir,'couto',eliteDamage(g),500);g.attack=rand(1.2,2.1)}}else{const dx=g.home.x-g.x,dy=g.home.y-g.y;moveToward(g,g.home,Math.hypot(dx,dy)*Math.min(1,dt*1.5))}}
 for(let i=0;i<escorts.length;i++){
  const g=escorts[i];if(g.hp<=0)continue;
@@ -736,6 +788,25 @@ drawWalls();
 ctx.fillStyle='#d7c28a';ctx.font='bold 9px Inter';ctx.textAlign='center';ctx.fillText('INNER RESERVE',cx,cy-245);
 ctx.fillStyle='#e1d2a9';ctx.font='bold 16px Cinzel';ctx.fillText('COUTO MISTO',cx,cy-135);ctx.font='9px Cinzel';ctx.fillText('THE STAR FORTRESS · INNER KEEP',cx,cy-118);ctx.textAlign='left'}
 function drawCannon(x,y,a){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.fillStyle='#493d2b';ctx.fillRect(-17,-7,34,14);ctx.fillStyle='#252a25';ctx.fillRect(-22,-4,44,8);ctx.fillStyle='#96784a';ctx.beginPath();ctx.arc(-13,12,8,0,Math.PI*2);ctx.arc(13,12,8,0,Math.PI*2);ctx.fill();ctx.restore()}
+function drawSheep(s){
+ if(!onScreen(s.x,s.y,34))return;
+ ctx.save();ctx.translate(s.x,s.y);ctx.rotate(s.dir||0);
+ const bob=Math.sin(s.phase)*.7,scale=s.wool||1;
+ // soft ground shadow and four short legs
+ ctx.fillStyle='rgba(22,29,20,.25)';ctx.beginPath();ctx.ellipse(0,8,15*scale,6,0,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#51483b';ctx.lineWidth=2.5;ctx.lineCap='round';
+ for(const lx of [-8,7])for(const ly of [-4,5]){ctx.beginPath();ctx.moveTo(lx,3+bob);ctx.lineTo(lx-1,10+bob);ctx.stroke()}
+ // woolly body, built from overlapping curls for a soft sheep silhouette
+ ctx.fillStyle='#e7dfc9';ctx.beginPath();ctx.ellipse(-1,-1+bob,14*scale,10*scale,0,0,Math.PI*2);ctx.fill();
+ for(const p of [[-10,-4],[-5,-8],[2,-9],[9,-5],[10,2],[4,6],[-5,6],[-12,2]]){
+  ctx.beginPath();ctx.arc(p[0]*scale,p[1]*scale+bob,4.7*scale,0,Math.PI*2);ctx.fill();
+ }
+ // dark face and ears, facing the direction of travel
+ ctx.fillStyle='#554b40';ctx.beginPath();ctx.ellipse(12,-3+bob,5.5,6.5,-.18,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#75675a';ctx.beginPath();ctx.ellipse(10,-9+bob,4,2,-.45,0,Math.PI*2);ctx.ellipse(10,3+bob,4,2,.45,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#171713';ctx.beginPath();ctx.arc(14,-5+bob,1,0,Math.PI*2);ctx.fill();
+ ctx.restore();
+}
 function drawCharacter(c,isPlayer=false){const s={x:c.x,y:c.y};if(!onScreen(c.x,c.y,55/zoom))return;ctx.save();ctx.translate(s.x,s.y);ctx.rotate(c.dir||0);const f=FACTIONS[c.faction]||FACTIONS.couto;
 if(c.type==='cannon'){drawCannon(0,0,0);ctx.fillStyle=f.a;ctx.fillRect(-4,-14,8,5);ctx.rotate(-(c.dir||0));if(c.hp<c.max){ctx.fillStyle='#251b16';ctx.fillRect(-14,-27,28,3);ctx.fillStyle='#c64d3d';ctx.fillRect(-14,-27,28*c.hp/c.max,3)}ctx.restore();return}
 if(c.type==='elephant'){ctx.fillStyle='#756e5c';ctx.beginPath();ctx.ellipse(0,0,29,21,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#8c8068';ctx.beginPath();ctx.arc(24,-4,13,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#9b8e75';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(32,0);ctx.quadraticCurveTo(43,12,32,22);ctx.stroke();ctx.fillStyle=f.a;ctx.fillRect(-12,-20,27,12);ctx.fillStyle=f.b;ctx.fillRect(-8,-18,18,4);ctx.fillStyle='#d8c79c';ctx.fillRect(-9,-30,18,12);ctx.restore();return}
@@ -748,6 +819,7 @@ if(c.hp<c.max){ctx.fillStyle='#251b16';ctx.fillRect(-11,-27,22,3);ctx.fillStyle=
 ctx.restore()}
 function draw(){ctx.clearRect(0,0,vw,vh);drawTerrain();ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
 for(const v of villagers){ctx.fillStyle='#d1c19c';ctx.beginPath();ctx.arc(v.x,v.y,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#594d3b';ctx.fillRect(v.x-3,v.y-3,6,5)}
+for(const s of sheep)drawSheep(s);
 for(const g of guards){if(g.hp>0)drawCharacter(g)}for(const g of escorts){if(g.hp>0)drawCharacter(g)}for(const d of defenders){if(d.hp>0)drawCharacter(d)}for(const e of enemies)if(e.hp>0)drawCharacter(e);drawCharacter(player,true);
 for(const b of bullets){ctx.fillStyle=b.faction==='enemy'?'#e76d43':'#f4df9e';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill()}
 for(const p of particles){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
