@@ -79,7 +79,7 @@ function behindWalls(p,m=14){for(const n of CURTAIN_DIRS)if((p.x-WORLD.cx)*n.x+(
 const RIVER_DEFS=[
  // All bridges stay at their existing positions and run vertically across
  // the mostly horizontal rivers. Their road approaches line up north-to-south.
- {y:1010,bridges:[{x:1311,y:1010,angle:0},{x:3089,y:1010,angle:0}]},
+ {y:1010,bridges:[{x:790,y:1010,angle:0},{x:3089,y:1010,angle:0}]},
  {y:2590,bridges:[{x:956,y:2590,angle:0},{x:3444,y:2590,angle:0}]}
 ];
 function riverCurvePoints(r){
@@ -481,44 +481,49 @@ function drawTerrainDetails(){
   ctx.beginPath();ctx.ellipse(x,y,105+(i%4)*22,58+(i%3)*17,(i%7)*.31,0,Math.PI*2);ctx.fill();
  }
 }
-function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
- // Layered meadow colours, grass tufts and small stones make the open field feel lived-in.
- ctx.fillStyle='#65784a';for(let i=0;i<260;i++){const x=(i*197)%WORLD.w,y=(i*317)%WORLD.h;if(!onScreen(x,y,50))continue;const rx=12+(i*17)%24,ry=7+(i*11)%12,rotation=((i*13)%60)/10;ctx.beginPath();ctx.ellipse(x,y,rx,ry,rotation,0,Math.PI*2);ctx.fill()}
- drawTerrainDetails();
- // Cart roads meet the fortress exits and cross each river exactly along
- // the fixed bridge deck axis. Bridge positions and bridge orientation are unchanged.
+function buildCartRoadRoutes(){
  const routes=[];
  for(const river of RIVER_DEFS)for(const b of river.bridges){
   let gate=GATE_ANGLES[0],gateScore=Infinity;
-  for(const angle of GATE_ANGLES){
-   const gx=WORLD.cx+Math.cos(angle)*430,gy=WORLD.cy+Math.sin(angle)*430;
-   const d=Math.hypot(gx-b.x,gy-b.y);
-   if(d<gateScore){gateScore=d;gate=angle}
-  }
+  for(const a of GATE_ANGLES){const d=Math.hypot(WORLD.cx+Math.cos(a)*430-b.x,WORLD.cy+Math.sin(a)*430-b.y);if(d<gateScore){gateScore=d;gate=a}}
   let camp=CAMP_SITES[0],campScore=Infinity;
   for(const c of CAMP_SITES){const d=Math.hypot(c.x-b.x,c.y-b.y);if(d<campScore){campScore=d;camp=c}}
   const start={x:WORLD.cx+Math.cos(gate)*430,y:WORLD.cy+Math.sin(gate)*430};
   const finish={x:camp.x,y:camp.y};
-  // The bridge's deck runs along its local Y axis. Use that exact axis for
-  // both road approaches so the road cannot cut diagonally across the deck.
   const axis={x:-Math.sin(b.angle||0),y:Math.cos(b.angle||0)};
-  const p1={x:b.x-axis.x*88,y:b.y-axis.y*88};
-  const p2={x:b.x+axis.x*88,y:b.y+axis.y*88};
-  const startFirst=Math.hypot(start.x-p1.x,start.y-p1.y)<=Math.hypot(start.x-p2.x,start.y-p2.y);
-  const entry=startFirst?p1:p2,exit=startFirst?p2:p1;
-  routes.push([start,entry,exit,finish]);
+  const p1={x:b.x-axis.x*88,y:b.y-axis.y*88},p2={x:b.x+axis.x*88,y:b.y+axis.y*88};
+  const first=Math.hypot(start.x-p1.x,start.y-p1.y)<=Math.hypot(start.x-p2.x,start.y-p2.y);
+  const entry=first?p1:p2,exit=first?p2:p1;
+  // Give each road its own gentle bends instead of repeating straight spokes.
+  const dx=entry.x-start.x,dy=entry.y-start.y,d=Math.max(1,Math.hypot(dx,dy));
+  const side=((Math.round(b.x/100)+Math.round(b.y/100))%2?1:-1);
+  const bend=145+(Math.round(b.x/10)%4)*38;
+  const approach={x:(start.x+entry.x)*.5-(dy/d)*bend*side,y:(start.y+entry.y)*.5+(dx/d)*bend*side};
+  const ex=finish.x-exit.x,ey=finish.y-exit.y,ed=Math.max(1,Math.hypot(ex,ey));
+  const departBend=115+(Math.round(b.y/10)%4)*34;
+  const departure={x:(exit.x+finish.x)*.5-(ey/ed)*departBend*side,y:(exit.y+finish.y)*.5+(ex/ed)*departBend*side};
+  routes.push({start,approach,entry,exit,departure,finish});
  }
+ return routes;
+}
+function drawCartRoads(project,scale){
+ const routes=buildCartRoadRoutes();
  ctx.lineCap='round';ctx.lineJoin='round';
- for(const route of routes){
-  ctx.beginPath();ctx.moveTo(route[0].x,route[0].y);
-  for(let i=1;i<route.length;i++)ctx.lineTo(route[i].x,route[i].y);
-  ctx.strokeStyle='#66563b';ctx.lineWidth=38;ctx.stroke();
-  ctx.strokeStyle='#a99a70';ctx.lineWidth=28;ctx.stroke();
-  ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2;ctx.setLineDash([10,15]);ctx.stroke();
+ for(const r of routes){
+  const p=project||((p)=>p),a=p(r.start),b=p(r.approach),c=p(r.entry),d=p(r.exit),e=p(r.departure),f=p(r.finish);
+  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(b.x,b.y,c.x,c.y);ctx.lineTo(d.x,d.y);ctx.quadraticCurveTo(e.x,e.y,f.x,f.y);
+  ctx.strokeStyle='#66563b';ctx.lineWidth=38*scale;ctx.stroke();
+  ctx.strokeStyle='#a99a70';ctx.lineWidth=28*scale;ctx.stroke();
+  ctx.strokeStyle='rgba(226,207,157,.52)';ctx.lineWidth=2*scale;ctx.setLineDash([10*scale,15*scale]);ctx.stroke();
   ctx.setLineDash([]);
  }
  ctx.lineCap='butt';ctx.lineJoin='miter';
- drawRiversAndBridges();
+}
+function drawTerrain(){ctx.fillStyle='#526b43';ctx.fillRect(0,0,vw,vh);ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
+ // Layered meadow colours, grass tufts and small stones make the open field feel lived-in.
+ ctx.fillStyle='#65784a';for(let i=0;i<260;i++){const x=(i*197)%WORLD.w,y=(i*317)%WORLD.h;if(!onScreen(x,y,50))continue;const rx=12+(i*17)%24,ry=7+(i*11)%12,rotation=((i*13)%60)/10;ctx.beginPath();ctx.ellipse(x,y,rx,ry,rotation,0,Math.PI*2);ctx.fill()}
+ drawTerrainDetails();
+ // Organic cart roads with varied bends, shared with the minimap.\n drawCartRoads(null,1);\n drawRiversAndBridges();
  for(const c of camps)drawEnemyCamp(c);
  drawTrees();drawFortress();ctx.restore()}
 function drawRiverPath(r){
@@ -740,26 +745,8 @@ function drawMinimap(){
   ctx.strokeStyle='#39777d';ctx.lineWidth=Math.max(3,mw/WORLD.w*94);ctx.stroke();
   ctx.strokeStyle='rgba(156,205,197,.48)';ctx.lineWidth=Math.max(1,mw/WORLD.w*3);ctx.stroke();
  }
- // Cart roads, matching the exact routes drawn on the battlefield.
- const routes=[];
- for(const river of RIVER_DEFS)for(const b of river.bridges){
-  let gate=GATE_ANGLES[0],gateScore=Infinity;
-  for(const a of GATE_ANGLES){const d=Math.hypot(WORLD.cx+Math.cos(a)*430-b.x,WORLD.cy+Math.sin(a)*430-b.y);if(d<gateScore){gateScore=d;gate=a}}
-  let camp=CAMP_SITES[0],campScore=Infinity;
-  for(const c of CAMP_SITES){const d=Math.hypot(c.x-b.x,c.y-b.y);if(d<campScore){campScore=d;camp=c}}
-  const origin={x:WORLD.cx+Math.cos(gate)*430,y:WORLD.cy+Math.sin(gate)*430};
-  const axis={x:-Math.sin(b.angle||0),y:Math.cos(b.angle||0)};
-  const p1={x:b.x-axis.x*88,y:b.y-axis.y*88},p2={x:b.x+axis.x*88,y:b.y+axis.y*88};
-  const first=Math.hypot(origin.x-p1.x,origin.y-p1.y)<=Math.hypot(origin.x-p2.x,origin.y-p2.y);
-  routes.push([origin,first?p1:p2,first?p2:p1,{x:camp.x,y:camp.y}]);
- }
- for(const route of routes){
-  ctx.beginPath();ctx.moveTo(X(route[0].x),Y(route[0].y));
-  for(let i=1;i<route.length;i++)ctx.lineTo(X(route[i].x),Y(route[i].y));
-  ctx.strokeStyle='#493d2c';ctx.lineWidth=Math.max(3,mw/WORLD.w*38);ctx.stroke();
-  ctx.strokeStyle='#c2ad7b';ctx.lineWidth=Math.max(1.5,mw/WORLD.w*23);ctx.stroke();
-  ctx.strokeStyle='rgba(247,225,169,.7)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
- }
+ // Same varied road paths as the main battlefield, projected to minimap coordinates.
+ drawCartRoads(p=>({x:X(p.x),y:Y(p.y)}),mw/WORLD.w);
  // Bridge decks are visible as short, bright cross-river markers.
  for(const river of RIVER_DEFS)for(const b of river.bridges){
   ctx.save();ctx.translate(X(b.x),Y(b.y));ctx.rotate(b.angle||0);
