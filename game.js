@@ -445,7 +445,7 @@ function reset(){
   const g=makeSoldier(WORLD.cx+rand(-12,12),WORLD.cy+rand(-12,12),'couto','swordsman',true,false);
   g.followSlot=i;g.attack=rand(.1,.7);escorts.push(g);
  }
- activePosts(activeCount).forEach(p=>{
+ activePosts(activeCount).forEach((p,i)=>{
   const d=makeSoldier(p.x,p.y,'couto',i%3===2?'spearman':'swordsman',true,false);
   d.post={x:p.x,y:p.y};d.dir=p.a;d.attack=rand(.1,.8);d.line=p.line;defenders.push(d);
  });
