@@ -143,11 +143,35 @@ function riverDistance(x,y){
  for(const pts of RIVER_LINES){const p=riverNearestPoint(pts,x,y);if(p&&p.distance<best)best=p.distance}
  return best;
 }
+// Spatial hash for exact river collision checks. Every segment is indexed into the
+// 96px cells touched by its 64px collision margin, so movement checks only nearby segments.
+const RIVER_COLLISION_CELL=96,RIVER_COLLISION_GRID=new Map();
+(function buildRiverCollisionGrid(){
+ for(let ri=0;ri<RIVER_LINES.length;ri++){
+  const pts=RIVER_LINES[ri];
+  for(let si=1;si<pts.length;si++){
+   const a=pts[si-1],b=pts[si],seg={ri,ax:a.x,ay:a.y,dx:b.x-a.x,dy:b.y-a.y,len2:(b.x-a.x)**2+(b.y-a.y)**2};
+   const x0=Math.floor((Math.min(a.x,b.x)-64)/RIVER_COLLISION_CELL),x1=Math.floor((Math.max(a.x,b.x)+64)/RIVER_COLLISION_CELL);
+   const y0=Math.floor((Math.min(a.y,b.y)-64)/RIVER_COLLISION_CELL),y1=Math.floor((Math.max(a.y,b.y)+64)/RIVER_COLLISION_CELL);
+   for(let gy=y0;gy<=y1;gy++)for(let gx=x0;gx<=x1;gx++){
+    const key=gx+','+gy;let bucket=RIVER_COLLISION_GRID.get(key);
+    if(!bucket){bucket=[];RIVER_COLLISION_GRID.set(key,bucket)}
+    bucket.push(seg);
+   }
+  }
+ }
+})();
+let riverCollisionChecks=0;
 function riverBlocked(x,y){
- for(let i=0;i<RIVER_DEFS.length;i++){
-  const r=RIVER_DEFS[i];if(riverBridgePass(x,y,r))continue;
-  const p=riverNearestPoint(RIVER_LINES[i],x,y);
-  if(p&&p.distance<64)return true;
+ for(let i=0;i<RIVER_DEFS.length;i++)if(riverBridgePass(x,y,RIVER_DEFS[i]))return false;
+ const bucket=RIVER_COLLISION_GRID.get(Math.floor(x/RIVER_COLLISION_CELL)+','+Math.floor(y/RIVER_COLLISION_CELL));
+ if(!bucket)return false;
+ const limit2=64*64;
+ for(const seg of bucket){
+  riverCollisionChecks++;
+  const t=clamp(((x-seg.ax)*seg.dx+(y-seg.ay)*seg.dy)/(seg.len2||1),0,1);
+  const dx=x-(seg.ax+t*seg.dx),dy=y-(seg.ay+t*seg.dy);
+  if(dx*dx+dy*dy<limit2)return true;
  }
  return false;
 }
@@ -1019,14 +1043,24 @@ function drawMinimap(){
 }
 function drawMenuPreview(){ctx.save();ctx.globalAlpha=.18;ctx.translate(vw/2-camera.x*zoom,vh/2-camera.y*zoom);ctx.scale(zoom,zoom);ctx.strokeStyle='#d4b36a';ctx.lineWidth=3;pathPoly(starPoints(WORLD.cx,WORLD.cy,500,395));ctx.stroke();ctx.restore()}
 const vignetteEl=$('vignette');
-let runtimeError=null;
+let runtimeError=null,debugOverlay=false,perfFrameMs=0,perfUpdateMs=0,perfDrawMs=0,perfFps=0,perfSamples=0;
+function drawDebugOverlay(){
+ if(!debugOverlay)return;
+ const alive=enemies.reduce((n,e)=>n+(e.hp>0?1:0),0),friendly=guards.filter(e=>e.hp>0).length+escorts.filter(e=>e.hp>0).length+defenders.filter(e=>e.hp>0).length;
+ ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=.94;ctx.fillStyle='#101812';ctx.fillRect(12,vh-150,285,138);
+ ctx.globalAlpha=1;ctx.fillStyle='#e8d6a8';ctx.font='12px monospace';
+ const lines=['DEBUG · F3 TO HIDE','FPS '+perfFps+'  FRAME '+perfFrameMs.toFixed(1)+' ms','UPDATE '+perfUpdateMs.toFixed(1)+' ms  DRAW '+perfDrawMs.toFixed(1)+' ms','ENEMIES '+alive+'  FRIENDLY '+friendly,'BULLETS '+bullets.length+'  PARTICLES '+particles.length,'RIVER SEGMENT TESTS '+riverCollisionChecks];
+ lines.forEach((line,i)=>ctx.fillText(line,22,vh-130+i*19));ctx.restore();
+}
 function loop(now){
- const dt=Math.min((now-last)/1000||0,.033);last=now;
+ const rawDt=(now-last)/1000||0,dt=Math.min(rawDt,.033);last=now;
  if(!runtimeError){
   try{
-   if(state==='playing')update(dt);
-   draw();
+   let t=performance.now();if(state==='playing')update(dt);perfUpdateMs=performance.now()-t;
+   t=performance.now();draw();perfDrawMs=performance.now()-t;
+   perfFrameMs=perfUpdateMs+perfDrawMs;perfFps=rawDt>0?Math.round(1/rawDt):0;
    if(vignetteEl)vignetteEl.classList.toggle('hurt',state==='playing'&&!!player&&player.hp>0&&player.hp/player.max<.3);
+   drawDebugOverlay();
   }catch(err){
    runtimeError=err;state='error';console.error('Couto Misto runtime stopped safely:',err);
    ui.toast.textContent='GAME ERROR · OPEN THE BROWSER CONSOLE AND RELOAD';ui.toast.classList.add('show');
@@ -1047,7 +1081,7 @@ canvas.addEventListener('wheel',e=>{if(state!=='playing'&&state!=='paused')retur
 canvas.addEventListener('pointermove',e=>{const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y});
 canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){mouse.down=true;const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y}});
 window.addEventListener('pointerup',()=>{mouse.down=false;touchFire=false});
-window.addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Space'&&state==='playing')sword();if(e.code==='KeyF'&&state==='playing'){escortFormation=escortFormation==='wedge'?'line':'wedge';banner(escortFormation==='line'?'GUARD FORMATION · LINE':'GUARD FORMATION · WEDGE');toast('Personal guard formation changed')}if(e.code==='KeyR'&&state==='playing')reload();if(e.code==='KeyE'&&state==='playing'){if(cannonCooldown<=0){shoot(player,player.dir,'couto',88,390);cannonCooldown=4.5;toast('Bastion cannon fired · reloading')}else toast('Cannon reloading…')}});window.addEventListener('keyup',e=>keys[e.code]=false);
+window.addEventListener('keydown',e=>{if(e.code==='F3'){e.preventDefault();debugOverlay=!debugOverlay;return}keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Space'&&state==='playing')sword();if(e.code==='KeyF'&&state==='playing'){escortFormation=escortFormation==='wedge'?'line':'wedge';banner(escortFormation==='line'?'GUARD FORMATION · LINE':'GUARD FORMATION · WEDGE');toast('Personal guard formation changed')}if(e.code==='KeyR'&&state==='playing')reload();if(e.code==='KeyE'&&state==='playing'){if(cannonCooldown<=0){shoot(player,player.dir,'couto',88,390);cannonCooldown=4.5;toast('Bastion cannon fired · reloading')}else toast('Cannon reloading…')}});window.addEventListener('keyup',e=>keys[e.code]=false);
 // ---------- Start screen: garrison deployment and fortress blueprint ----------
 const ROLE_IDS=['wall-count','guard-count','active-count'];
 function drawBlueprint(counts){
