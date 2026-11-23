@@ -458,7 +458,9 @@ function siege(e,dt,rad){
  const c=wallContact(plan.w,e);
  if(c.sep>rad+8)move();
  else if(e.attack<=0){
-  const wallDamage=(SIEGE_DMG[e.type]&&SIEGE_DMG[e.type][plan.w.kind])??(e.type==='spearman'?5:e.type==='archer'?1:e.type==='rifleman'?2:e.type==='cannon'?18:4);
+  const unitSiegeDamage=SIEGE_DMG[e.type];
+  const wallDamage=(unitSiegeDamage&&Number.isFinite(unitSiegeDamage[plan.w.kind])?unitSiegeDamage[plan.w.kind]:null)
+   ??(e.type==='spearman'?5:e.type==='archer'?1:e.type==='rifleman'?2:e.type==='cannon'?18:e.type==='elephant'?26:e.type==='cavalry'?3:4);
   damageWall(plan.w,wallDamage,c.x,c.y);
   e.attack=e.type==='swordsman'?.78:1.05;
  }
