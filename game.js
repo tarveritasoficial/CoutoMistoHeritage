@@ -1068,7 +1068,11 @@ function loop(now){
    ui.toast.textContent='GAME ERROR · OPEN THE BROWSER CONSOLE AND RELOAD';ui.toast.classList.add('show');
    ui.pause.classList.add('hidden');ui.over.classList.remove('hidden');
    $('over-eyebrow').textContent='A GAME ERROR OCCURRED';$('over-title').textContent='BATTLE PAUSED';
-   $('final-stats').textContent='The game stopped safely instead of freezing. Please reload and report the console error.';
+   const errorMessage=err&&err.message?err.message:String(err);
+   const errorStack=err&&err.stack?String(err.stack).split('\\n').slice(0,5).join('\\n'):'No stack trace available';
+   const errorDetails=$('final-stats');
+   errorDetails.textContent='ERROR: '+errorMessage+'\\n\\n'+errorStack;
+   errorDetails.classList.add('runtime-error-details');
    $('again-btn').textContent='RELOAD DEFENCE';
   }
  }
