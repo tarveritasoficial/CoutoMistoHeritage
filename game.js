@@ -174,6 +174,54 @@ function moveLand(u,dx,dy){
   if(!riverBlocked(u.x,ny))u.y=ny;
  }
 }
+// Enemy-only bridge traversal. Units commit to a bridge, align on the near bank,
+// cross straight along the deck, and resume normal pathing after reaching dry land.
+function enemyBridgeContains(x,y,b,radius=0){
+ const a=b.angle||0,dx=x-b.x,dy=y-b.y;
+ const lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a);
+ return Math.abs(lx)<=40+radius&&Math.abs(ly)<=82+radius;
+}
+function enemyMoveBridge(e,target,len){
+ let route=e.bridgeRoute;
+ if(route){
+  const b=route.bridge,radius=unitRadius(e);
+  let goal=route.stage==='entry'?route.entry:route.exit;
+  if(dist(e,goal)<=Math.max(7,radius*.45)){
+   if(route.stage==='entry'){route.stage='cross';goal=route.exit}
+   else if(route.stage==='cross'){route.stage='exit';goal=route.exit}
+   else {e.bridgeRoute=null;return false}
+  }
+  const d=dist(e,goal),step=Math.min(len,d),a=angle(e,goal),steps=Math.max(1,Math.ceil(step/3));
+  for(let i=0;i<steps;i++){
+   const nx=e.x+Math.cos(a)*step/steps,ny=e.y+Math.sin(a)*step/steps;
+   const onDeck=enemyBridgeContains(nx,ny,b,radius+4);
+   if(riverBlocked(nx,ny)&&!onDeck)break;
+   e.x=nx;e.y=ny;
+  }
+  return true;
+ }
+ for(let i=0;i<RIVER_DEFS.length;i++){
+  const river=RIVER_DEFS[i],from=riverNearestPoint(RIVER_LINES[i],e.x,e.y),to=riverNearestPoint(RIVER_LINES[i],target.x,target.y);
+  if(!from||!to)continue;
+  const sideA=from.tx*(e.y-from.y)-from.ty*(e.x-from.x);
+  const sideB=to.tx*(target.y-to.y)-to.ty*(target.x-to.x);
+  if(sideA*sideB>=0||Math.abs(sideA)<1||Math.abs(sideB)<1)continue;
+  let bridge=river.bridges[0],best=Infinity;
+  for(const candidate of river.bridges){const score=dist(e,candidate)+dist(candidate,target);if(score<best){best=score;bridge=candidate}}
+  const a=bridge.angle||0,nx=-Math.sin(a),ny=Math.cos(a),side=Math.sign(sideA)||1;
+  e.bridgeRoute={bridge,entry:{x:bridge.x+nx*side*112,y:bridge.y+ny*side*112},exit:{x:bridge.x-nx*side*112,y:bridge.y-ny*side*112},stage:'entry'};
+  return enemyMoveBridge(e,target,len);
+ }
+ return false;
+}
+function moveEnemyToward(e,p,len){
+ if(enemyMoveBridge(e,p,len)){
+  const route=e.bridgeRoute;
+  e.dir=angle(e,route?(route.stage==='entry'?route.entry:route.exit):p);
+  return e.dir;
+ }
+ return moveToward(e,p,len);
+}
 function moveToward(u,p,len){
  const goal=riverRouteTarget(u,p),d=dist(u,goal),a=angle(u,goal),step=Math.min(len,d);
  moveLand(u,Math.cos(a)*step,Math.sin(a)*step);return a;
@@ -222,10 +270,10 @@ function damageCamp(c,amount){
 function campGuardAI(e,dt){
  let t=null,bd=300;
  for(const f of [player,...escorts]){if(f.hp<=0)continue;const d=dist(e,f);if(d<bd){bd=d;t=f}}
- if(!t){const hd=dist(e,e.home);if(hd>10){e.dir=angle(e,e.home);stepTo(e,e.home,60*dt)}return}
+ if(!t){const hd=dist(e,e.home);if(hd>10){e.dir=angle(e,e.home);moveEnemyToward(e,e.home,60*dt)}return}
  e.dir=angle(e,t);const d=dist(e,t);
- if(e.type==='rifleman'){if(d>200)stepTo(e,t,50*dt);else if(e.attack<=0){shoot(e,e.dir,'enemy',13,390);e.attack=1.65}}
- else if(d>31)stepTo(e,t,82*dt);
+ if(e.type==='rifleman'){if(d>200)moveEnemyToward(e,t,50*dt);else if(e.attack<=0){shoot(e,e.dir,'enemy',13,390);e.attack=1.65}}
+ else if(d>31)moveEnemyToward(e,t,82*dt);
  else if(e.attack<=0){if(t===player){if(player.invuln<=0){player.hp-=15;player.invuln=.48}}else t.hp-=19;e.attack=.78}
 }
 function updateCamps(dt){
@@ -276,7 +324,7 @@ function siege(e,dt,rad){
  const plan=assaultPlan(e);e.wallId=plan.w.id;
  e.dir=Math.atan2(plan.pt.y-e.y,plan.pt.x-e.x);
  const speed=e.type==='elephant'?42:e.type==='cavalry'?105:82;
- const move=()=>moveToward(e,plan.pt,speed*dt);
+ const move=()=>moveEnemyToward(e,plan.pt,speed*dt);
  if(plan.breach){move();return}
  const c=wallContact(plan.w,e);
  if(c.sep>rad+8)move();
@@ -381,19 +429,19 @@ for(const e of enemies){
  if(e.type!=='rifleman'&&!inside&&behindWalls(target)){siege(e,dt,rad);continue}
  if(e.type==='elephant'||e.type==='cavalry'){
   const speed=e.type==='elephant'?42:105;
-  if(d>34)moveToward(e,target,speed*dt)
+  if(d>34)moveEnemyToward(e,target,speed*dt)
   else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=e.type==='elephant'?22:15;player.invuln=.45}}else if(target.hp!==undefined)target.hp-=e.type==='elephant'?32:20;e.attack=1.05}
   continue;
  }
  if(e.type==='swordsman'){
-  if(d>31)moveToward(e,target,82*dt)
+  if(d>31)moveEnemyToward(e,target,82*dt)
   else if(e.attack<=0){if(target===player){if(player.invuln<=0){player.hp-=15;player.invuln=.48}}else if(target.hp!==undefined)target.hp-=19;e.attack=.78}
   continue;
  }
  // Musketeers keep a firing distance and shoot at the closest defender.
  // Pressed against the walls they fire from there: the walls give the defenders cover.
  const atWalls=!inside&&coreDistance<440&&d<450;
- if(d>190&&!atWalls){const sp=coreDistance>700?85:47;moveToward(e,target,sp*dt)}
+ if(d>190&&!atWalls){const sp=coreDistance>700?85:47;moveEnemyToward(e,target,sp*dt)}
  else if(e.attack<=0){shoot(e,e.dir,'enemy',13,390);e.attack=1.65}
 }
 // intact walls, gates and bastions are solid
