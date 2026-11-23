@@ -463,7 +463,7 @@ function launchCavalryCharge(bridge){
  const target=targets.sort((a,b)=>dist(player,a)-dist(player,b))[0];
  const edgeX=target.x<WORLD.cx?18:WORLD.w-18,edgeY=target.y<WORLD.cy?18:WORLD.h-18;
  const useX=Math.abs(target.x-WORLD.cx)>Math.abs(target.y-WORLD.cy);
- const formation={x:useX?edgeX:target.x,y:useX?target.y:edgeY,dir:angle({x:useX?edgeX:target.x,y:useX?target.y:edgeY},player)};
+ const formation={x:useX?edgeX:target.x,y:useX?target.y:edgeY,dir:angle({x:useX?edgeX:target.x,y:useX?target.y:edgeY},player),members:[],leader:null};
  for(let i=0;i<20;i++){
   const spread=(i-9.5)*13;
   const x=clamp(useX?edgeX:target.x+spread,18,WORLD.w-18);
@@ -471,6 +471,7 @@ function launchCavalryCharge(bridge){
   const h=makeSoldier(x,y,target.faction,'cavalry',false,false);
   h.hp=h.max=105;h.chargeCamp=target;h.chargeSpeed=235;h.attack=rand(.05,.45);h.campGuard=false;
   h.chargeFormation=formation;h.chargeIndex=i;
+  formation.members.push(h);if(i===0)formation.leader=h;
   enemies.push(h);
  }
  banner('ENEMY CAVALRY · 20 HORSEMEN');
@@ -540,7 +541,15 @@ for(const e of enemies){
   for(const ally of [...escorts,...guards,...defenders])if(ally.hp>0&&dist(e,ally)<td){threat=ally;td=dist(e,ally)}
   const goal=td<620?threat:player,gd=dist(e,goal),formation=e.chargeFormation;
   if(formation){
-   if(e.chargeIndex===0){
+   // If the point horse is killed, promote the first surviving rider and
+   // rebuild the remaining wedge around that rider instead of freezing.
+   if(!formation.leader||formation.leader.hp<=0){
+    const survivors=formation.members.filter(h=>h.hp>0).sort((a,b)=>a.chargeIndex-b.chargeIndex);
+    formation.leader=survivors[0]||null;
+    survivors.forEach((h,i)=>h.chargeIndex=i);
+    if(formation.leader){formation.x=formation.leader.x;formation.y=formation.leader.y;formation.dir=angle(formation.leader,goal)}
+   }
+   if(e===formation.leader){
     e.dir=angle(e,goal);
     if(gd>34)moveEnemyToward(e,goal,e.chargeSpeed*dt);
     formation.x=e.x;formation.y=e.y;formation.dir=e.dir;
