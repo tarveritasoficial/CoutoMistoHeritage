@@ -1067,11 +1067,25 @@ $('victory-menu').addEventListener('click',mainMenu);
 $('victory-sound').addEventListener('click',()=>{victoryVideo.muted=!victoryVideo.muted;victorySound.textContent=victoryVideo.muted?'ENABLE SOUND':'MUTE SOUND';if(victoryVideo.paused)victoryVideo.play().catch(()=>{})});
 victoryVideo.addEventListener('ended',showVictoryResults);
 victoryVideo.addEventListener('error',()=>{if(state==='victory'){toast('Victory video could not be loaded');showVictoryResults()}});
-const trailerScreen=$('trailer-screen'),trailerVideo=$('trailer-video'),trailerSound=$('trailer-sound');
+const trailerScreen=$('trailer-screen'),trailerVideo=$('trailer-video'),trailerSound=$('trailer-sound'),trailerPlay=$('trailer-play');
+let trailerAutoplayAttempted=false;
+function showTrailerPlay(label='PLAY INTRO'){trailerPlay.textContent=label;trailerPlay.classList.remove('hidden')}
+function hideTrailerPlay(){trailerPlay.classList.add('hidden')}
+function playTrailer(fromUser=false){
+ if(fromUser)trailerVideo.muted=true;
+ const attempt=trailerVideo.play();
+ if(attempt&&typeof attempt.then==='function')attempt.then(()=>{hideTrailerPlay();trailerSound.textContent=trailerVideo.muted?'ENABLE SOUND':'MUTE SOUND'}).catch(()=>showTrailerPlay('PLAY INTRO'));
+ else hideTrailerPlay();
+}
 function finishTrailer(){if(!trailerScreen.classList.contains('hidden')){trailerScreen.classList.add('hidden');trailerVideo.pause();ui.menu.classList.remove('hidden');state='menu';last=performance.now()}}
 $('trailer-skip').addEventListener('click',finishTrailer);
-$('trailer-sound').addEventListener('click',()=>{if(trailerVideo.error||trailerVideo.readyState===0){trailerVideo.muted=true;trailerSound.textContent='LOADING…';trailerVideo.load();trailerVideo.play().then(()=>{trailerSound.textContent='ENABLE SOUND'}).catch(()=>{trailerSound.textContent='RETRY INTRO'});return;}trailerVideo.muted=!trailerVideo.muted;trailerSound.textContent=trailerVideo.muted?'ENABLE SOUND':'MUTE SOUND';if(trailerVideo.paused)trailerVideo.play().catch(()=>{trailerSound.textContent='RETRY INTRO'})});
+trailerPlay.addEventListener('click',()=>{if(trailerVideo.error||trailerVideo.networkState===HTMLMediaElement.NETWORK_NO_SOURCE){trailerSound.textContent='LOADING…';trailerVideo.load()}playTrailer(true)});
+$('trailer-sound').addEventListener('click',()=>{if(trailerVideo.paused){playTrailer(true);return}trailerVideo.muted=!trailerVideo.muted;trailerSound.textContent=trailerVideo.muted?'ENABLE SOUND':'MUTE SOUND'});
+trailerVideo.addEventListener('playing',()=>{hideTrailerPlay();trailerSound.textContent=trailerVideo.muted?'ENABLE SOUND':'MUTE SOUND'});
 trailerVideo.addEventListener('ended',finishTrailer);
-trailerVideo.addEventListener('error',()=>{trailerSound.textContent='RETRY INTRO';const caption=trailerScreen.querySelector('.trailer-caption');if(caption)caption.textContent='INTRO VIDEO COULD NOT LOAD · TAP RETRY OR SKIP';});trailerVideo.addEventListener('canplay',()=>{trailerSound.textContent='ENABLE SOUND';const caption=trailerScreen.querySelector('.trailer-caption');if(caption)caption.textContent='HOLD THE FORTRESS · DEFEND YOUR HERITAGE'});
-reset();setTimeout(()=>{ui.loading.classList.add('hidden');trailerScreen.classList.remove('hidden');state='menu';last=performance.now();trailerVideo.muted=true;trailerVideo.play().catch(()=>{trailerSound.textContent='PLAY TRAILER'});requestAnimationFrame(loop)},650);
+trailerVideo.addEventListener('error',()=>{showTrailerPlay('RETRY INTRO');trailerSound.textContent='VIDEO ERROR';const caption=trailerScreen.querySelector('.trailer-caption');if(caption)caption.textContent='INTRO VIDEO COULD NOT LOAD · RETRY OR SKIP'});
+trailerVideo.addEventListener('canplay',()=>{trailerSound.textContent='ENABLE SOUND';const caption=trailerScreen.querySelector('.trailer-caption');if(caption)caption.textContent='HOLD THE FORTRESS · DEFEND YOUR HERITAGE';if(!trailerAutoplayAttempted&&!trailerScreen.classList.contains('hidden')){trailerAutoplayAttempted=true;playTrailer(false)}});
+trailerVideo.addEventListener('loadeddata',()=>{if(trailerVideo.paused&&!trailerAutoplayAttempted&&!trailerScreen.classList.contains('hidden')){trailerAutoplayAttempted=true;playTrailer(false)}});
+reset();
+setTimeout(()=>{ui.loading.classList.add('hidden');trailerScreen.classList.remove('hidden');state='menu';last=performance.now();trailerVideo.muted=true;trailerVideo.load();trailerAutoplayAttempted=true;playTrailer(false);setTimeout(()=>{if(trailerVideo.paused&&!trailerVideo.error)showTrailerPlay('PLAY INTRO')},1800);requestAnimationFrame(loop)},650);
 })();
