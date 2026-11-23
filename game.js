@@ -339,7 +339,7 @@ function buildSheep(){
     if(sheepFieldSafe(x,y))p={x,y};
    }
    if(!p)continue;
-   flockList.push({x:p.x,y:p.y,home:{x:home.x,y:home.y},target:{x:home.x,y:home.y},dir:rand(0,Math.PI*2),speed:rand(17,25),pause:rand(0,2.5),think:rand(2,5),wool:rand(.88,1.12),phase:rand(0,Math.PI*2)});
+   flockList.push({x:p.x,y:p.y,hp:36,max:36,dead:false,home:{x:home.x,y:home.y},target:{x:home.x,y:home.y},dir:rand(0,Math.PI*2),speed:rand(17,25),pause:rand(0,2.5),think:rand(2,5),wool:rand(.88,1.12),phase:rand(0,Math.PI*2)});
   }
  }
  return flockList;
@@ -444,7 +444,7 @@ function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove(
 function gameOver(){state='over';$('over-eyebrow').textContent='THE FORTRESS HAS FALLEN';$('over-title').textContent='DEFEAT';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent='Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length)}
 function reload(){if(player.reload<=0&&player.ammo<player.maxAmmo){player.reload=1.25;toast('Reloading musket…')}}
 function shoot(from,dir,faction,damage=24,speed=520,siege=false){bullets.push({x:from.x+Math.cos(dir)*17,y:from.y+Math.sin(dir)*17,vx:Math.cos(dir)*speed,vy:Math.sin(dir)*speed,life:1.7,faction,damage,r:siege?5:4,siege});for(let i=0;i<4;i++)particles.push({x:from.x+Math.cos(dir)*12,y:from.y+Math.sin(dir)*12,vx:rand(-35,35)+Math.cos(dir)*rand(15,55),vy:rand(-35,35)+Math.sin(dir)*rand(15,55),life:rand(.12,.28),max:.28,color:'#f4d58c',r:rand(1,3)})}
-function sword(){if(player.sword>0)return;player.sword=.42;let hit=0;for(const e of enemies){if(e.hp>0&&dist(player,e)<58&&Math.abs(Math.atan2(Math.sin(angle(player,e)-player.dir),Math.cos(angle(player,e)-player.dir)))<1.25){e.hp-=48;hit++ ;if(e.hp<=0)kill(e)}}for(const c of camps){if(!c.destroyed&&dist(player,c)<c.r+40){damageCamp(c,70);hit++}}if(hit)toast('Sword strike!')}
+function sword(){if(player.sword>0)return;player.sword=.42;let hit=0;for(const s of sheep){if(s.hp>0&&dist(player,s)<55&&Math.abs(Math.atan2(Math.sin(angle(player,s)-player.dir),Math.cos(angle(player,s)-player.dir)))<1.25){damageSheep(s,36);hit++}}for(const e of enemies){if(e.hp>0&&dist(player,e)<58&&Math.abs(Math.atan2(Math.sin(angle(player,e)-player.dir),Math.cos(angle(player,e)-player.dir)))<1.25){e.hp-=48;hit++ ;if(e.hp<=0)kill(e)}}for(const c of camps){if(!c.destroyed&&dist(player,c)<c.r+40){damageCamp(c,70);hit++}}if(hit)toast('Sword strike!')}
 function spawnWave(){
  const alive=camps.filter(c=>!c.destroyed);if(!alive.length)return;
  wave++;ui.wave.textContent=wave;banner('ENEMY WAVE '+wave);
@@ -531,7 +531,7 @@ for(const e of enemies)if(e.hp>0&&e.type!=='cannon')pushOutOfWalls(e,unitRadius(
 for(const g of escorts)if(g.hp>0)pushOutOfWalls(g,9,true);
 for(const d of defenders)if(d.hp>0)pushOutOfWalls(d,9,true);
 for(const e of enemies){if(e.hp<=0&&!e.dead)kill(e)}enemies=enemies.filter(e=>e.hp>0);
-for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
+for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.faction==='enemy'){if(dist(b,player)<17&&player.invuln<=0){player.hp-=b.damage;player.invuln=.4;b.life=0;continue}for(const g of [...guards,...escorts,...defenders]){if(g.hp>0&&dist(b,g)<15){g.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of sheep){if(s.hp>0&&dist(b,s)<13){damageSheep(s,b.damage);b.life=0;break}}if(b.life>0)for(const w of walls){if(w.hp>0&&wallContact(w,b).sep<(b.siege?6:3)){damageWall(w,b.siege?55:b.damage*.08,b.x,b.y);b.life=0;break}}}else{for(const c of camps){if(!c.destroyed&&dist(b,c)<c.r*.8){damageCamp(c,b.damage*.85);b.life=0;break}}if(b.life>0)for(const e of enemies){if(e.hp>0&&dist(b,e)<(e.type==='elephant'?27:14)){e.hp-=b.damage;b.life=0;break}}if(b.life>0)for(const s of sheep){if(s.hp>0&&dist(b,s)<13){damageSheep(s,b.damage);b.life=0;break}}}}bullets=bullets.filter(b=>b.life>0);
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}particles=particles.filter(p=>p.life>0);
 for(const f of floaters){f.y-=26*dt;f.life-=dt}floaters=floaters.filter(f=>f.life>0);
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(enemies.some(e=>dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
@@ -804,6 +804,7 @@ function drawSheep(s){
  // dark face and ears, facing the direction of travel
  ctx.fillStyle='#554b40';ctx.beginPath();ctx.ellipse(12,-3+bob,5.5,6.5,-.18,0,Math.PI*2);ctx.fill();
  ctx.fillStyle='#75675a';ctx.beginPath();ctx.ellipse(10,-9+bob,4,2,-.45,0,Math.PI*2);ctx.ellipse(10,3+bob,4,2,.45,0,Math.PI*2);ctx.fill();
+  if(s.hp<s.max||s.flash>0){ctx.rotate(-(s.dir||0));ctx.fillStyle='#241f19';ctx.fillRect(-13,-20,26,3);ctx.fillStyle=s.hp/s.max>.35?'#8eaf68':'#c65343';ctx.fillRect(-12,-19,24*clamp(s.hp/s.max,0,1),1.5);}
  ctx.fillStyle='#171713';ctx.beginPath();ctx.arc(14,-5+bob,1,0,Math.PI*2);ctx.fill();
  ctx.restore();
 }
