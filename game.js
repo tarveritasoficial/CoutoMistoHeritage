@@ -79,7 +79,7 @@ function behindWalls(p,m=14){for(const n of CURTAIN_DIRS)if((p.x-WORLD.cx)*n.x+(
 const RIVER_DEFS=[
  // All bridges stay at their existing positions and run vertically across
  // the mostly horizontal rivers. Their road approaches line up north-to-south.
- {y:1010,bridges:[{x:790,y:1010,angle:0},{x:3089,y:1010,angle:0}]},
+ {y:1010,bridges:[{x:560,y:1010,angle:0},{x:3089,y:1010,angle:0}]},
  {y:2590,bridges:[{x:956,y:2590,angle:0},{x:3444,y:2590,angle:0}]}
 ];
 function riverCurvePoints(r){
@@ -489,18 +489,21 @@ function buildCartRoadRoutes(){
   let camp=CAMP_SITES[0],campScore=Infinity;
   for(const c of CAMP_SITES){const d=Math.hypot(c.x-b.x,c.y-b.y);if(d<campScore){campScore=d;camp=c}}
   const start={x:WORLD.cx+Math.cos(gate)*430,y:WORLD.cy+Math.sin(gate)*430};
-  const finish={x:camp.x,y:camp.y};
   const axis={x:-Math.sin(b.angle||0),y:Math.cos(b.angle||0)};
   const p1={x:b.x-axis.x*88,y:b.y-axis.y*88},p2={x:b.x+axis.x*88,y:b.y+axis.y*88};
   const first=Math.hypot(start.x-p1.x,start.y-p1.y)<=Math.hypot(start.x-p2.x,start.y-p2.y);
   const entry=first?p1:p2,exit=first?p2:p1;
-  // Give each road its own gentle bends instead of repeating straight spokes.
+  // Roads meet the camp perimeter rather than ending beneath its marker.
+  const campDx=b.x-camp.x,campDy=b.y-camp.y,campD=Math.max(1,Math.hypot(campDx,campDy));
+  const finish={x:camp.x+campDx/campD*92,y:camp.y+campDy/campD*92};
+  // Vary each route's bend direction and strength; keep the northwest approach
+  // tucked inside the western edge and lead it naturally into the relocated bridge.
   const dx=entry.x-start.x,dy=entry.y-start.y,d=Math.max(1,Math.hypot(dx,dy));
-  const side=((Math.round(b.x/100)+Math.round(b.y/100))%2?1:-1);
-  const bend=145+(Math.round(b.x/10)%4)*38;
+  const side=(Math.round(b.x/100)+Math.round(b.y/100))%2?1:-1;
+  const bend= b.x<700?95:145+(Math.round(b.x/10)%4)*38;
   const approach={x:(start.x+entry.x)*.5-(dy/d)*bend*side,y:(start.y+entry.y)*.5+(dx/d)*bend*side};
   const ex=finish.x-exit.x,ey=finish.y-exit.y,ed=Math.max(1,Math.hypot(ex,ey));
-  const departBend=115+(Math.round(b.y/10)%4)*34;
+  const departBend=b.x<700?72:115+(Math.round(b.y/10)%4)*34;
   const departure={x:(exit.x+finish.x)*.5-(ey/ed)*departBend*side,y:(exit.y+finish.y)*.5+(ex/ed)*departBend*side};
   routes.push({start,approach,entry,exit,departure,finish});
  }
