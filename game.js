@@ -729,6 +729,29 @@ for(const e of enemies){
   continue;
  }
  if(e.campGuard){campGuardAI(e,dt);continue}
+ // Once a breach exists, every ground assault unit uses it to enter the courtyard.
+ // Keep each unit committed to one opening until it has crossed the wall line.
+ if(breachOpen&&e.type!=='cannon'){
+  if(insideFort(e)){e.breachStage=2;e.breachWallId=null}
+  else{
+   if(e.breachStage===2){e.breachStage=0;e.breachWallId=null}
+   let breach=e.breachWallId?wallById(e.breachWallId):null;
+   if(!breach||breach.hp>0){
+    breach=null;let nearest=Infinity;
+    for(const w of walls)if(w.hp<=0){const d=dist(e,{x:w.mx,y:w.my});if(d<nearest){nearest=d;breach=w}}
+    if(breach){e.breachWallId=breach.id;e.breachStage=0}
+   }
+   if(breach){
+    const outer={x:breach.mx+breach.nx*48,y:breach.my+breach.ny*48};
+    const inner={x:breach.mx-breach.nx*58,y:breach.my-breach.ny*58};
+    if(e.breachStage!==1&&dist(e,outer)<28)e.breachStage=1;
+    const entry=e.breachStage===1?inner:outer;
+    const assaultSpeed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='spearman'?68:82;
+    e.dir=angle(e,entry);moveEnemyToward(e,entry,assaultSpeed*dt);
+    continue;
+   }
+  }
+ }
  // Wave infantry and ranged troops advance in compact line/wedge groups.
  // Formations dissolve near combat range so units can siege and fight normally.
  const waveFormation=e.waveFormation;
