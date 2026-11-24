@@ -13,6 +13,10 @@ https://tarveritasoficial.github.io/CoutoMistoHeritage/
 - **Left mouse button:** fire musket
 - **Space:** sword attack
 - **R:** reload
+- **E:** fire the bastion cannon
+- **F:** toggle personal-guard formation (wedge / line)
+- **F3:** debug overlay
+- **Mouse wheel / +−⌖:** zoom
 - **Esc:** pause
 - **Mobile:** left virtual joystick; FIRE, SWORD and RELOAD touch controls
 
@@ -20,10 +24,10 @@ https://tarveritasoficial.github.io/CoutoMistoHeritage/
 
 - Star-shaped five-bastion fortress with destructible walls, gates and bastions
 - Large open countryside: leave through the gates (open to you and your guard) and fight outside
-- Four fortified enemy camps (France, Spain, Portugal, England) with garrisons; destroy them with sword or musket. Each camp lost means smaller waves, and destroying all four wins the game
+- Four fortified enemy camps (France, Spain, Portugal, England) with garrisons; they are protected until wave 10, after which you can destroy them with sword or musket. Each camp lost means smaller waves, and destroying all four wins the game
 - Minimap and camp counter
 - Couto Misto player soldier with musket and sword
-- Eight elite royal guards defending fixed positions
+- Configurable garrison (up to 80): wall musketeers, a personal guard and active reserve defenders
 - Four invading factions: Portugal, Spain, France and England
 - Progressive enemy waves, score, health, ammunition and fortress condition
 - Riflemen, swordsmen, cavalry and elephant units
