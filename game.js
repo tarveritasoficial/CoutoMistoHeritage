@@ -3,6 +3,7 @@
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d');
 const ui = {menu:$('menu'),loading:$('loading'),hud:$('hud'),pause:$('pause'),over:$('gameover'),orders:$('orders'),mobile:$('mobile-controls'),wave:$('wave'),score:$('score'),guards:$('guards'),health:$('health-bar'),healthText:$('health-text'),fort:$('fort-bar'),fortText:$('fort-text'),ammo:$('ammo'),reload:$('reload-state'),banner:$('wave-banner'),toast:$('toast'),walls:$('walls'),camps:$('camps')};
+const MAX_ROLE=100,MAX_TOTAL=200,MAX_FARMERS=16;
 const WORLD = {w:4400,h:3600,cx:2200,cy:1800};
 const FACTIONS = {
   couto:{name:'Couto Misto',a:'#244b36',b:'#d8b65f',dark:'#152e21'},
@@ -475,12 +476,13 @@ function reset(){
  camera.x=clamp(WORLD.cx,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(WORLD.cy,vh/(2*zoom),WORLD.h-vh/(2*zoom));
  wave=0;score=0;fortress=100;escortFormation='wedge';$('touch-formation').textContent='LINE';elapsed=0;campHintAt=-99;lastPlayerHp=100;lastPlayerHp=100;spawnClock=0;waveGap=2;
  enemies=[];bullets=[];particles=[];floaters=[];corpses.length=0;villagers=[];sheep=[];guards=[];escorts=[];defenders=[];peasants=[];idCounter=0;
- const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
- const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
- const activeCount=clamp(Math.floor(Number($('active-count').value)||0),0,40);
+ const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,MAX_ROLE);
+ const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,MAX_ROLE);
+ const activeCount=clamp(Math.floor(Number($('active-count').value)||0),0,MAX_ROLE);
  walls=buildWalls();waveActive=false;victoryTimer=0;camps=buildCamps();sheep=buildSheep();cows=buildFarmAnimals('cow',9);chickens=buildFarmAnimals('chicken',20);
- // Four lightly armed local peasants defend each safe farm field with slings.
- for(const farm of FARM_SITES){if(!farmSiteSafe(farm))continue;for(const [ox,oy] of [[-68,-24],[0,-60],[62,-8],[12,58]]){const p=makeSoldier(farm.x+ox,farm.y+oy,'couto','archer',true,false);p.peasant=true;p.hp=p.max=32;p.home={x:p.x,y:p.y};p.attack=rand(.3,1.4);p.reload=rand(.3,1.4);peasants.push(p)}}
+ const farmerCount=clamp(Math.floor(Number($('farmer-count').value)||0),0,MAX_FARMERS);
+ // Local peasants defend each safe farm field with slings, spread in a loose ring around the plots.
+ for(const farm of FARM_SITES){if(!farmSiteSafe(farm))continue;for(let i=0;i<farmerCount;i++){const a=i*Math.PI*2/farmerCount+farm.turn,r=55+(i%3)*14,p=makeSoldier(farm.x+Math.cos(a)*r*1.15,farm.y+Math.sin(a)*r*.85,'couto','archer',true,false);p.peasant=true;p.hp=p.max=32;p.home={x:p.x,y:p.y};p.attack=rand(.3,1.4);p.reload=rand(.3,1.4);peasants.push(p)}}
  wallPosts(wallCount).forEach((p,i)=>{
   const g=makeSoldier(p.x,p.y,'couto','rifleman',true,true);g.slot=i;g.home={x:p.x,y:p.y};g.dir=p.a;guards.push(g);
  });
@@ -1600,7 +1602,7 @@ function drawBlueprint(counts){
  g.textAlign='center';g.font='700 11px Inter, Arial, sans-serif';g.fillStyle='#e0b676';
  for(let i=0;i<5;i++){const w=wallById('C'+i+'1');g.fillText('GATE',X(w.mx+w.nx*62),Y(w.my+w.ny*62)+4)}
  // soldiers
- const n=counts.map(v=>clamp(Math.floor(v)||0,0,40));
+ const n=counts.map(v=>clamp(Math.floor(v)||0,0,MAX_ROLE));
  wallPosts(n[0]).forEach(p=>dot(p.x,p.y,8,'#f1d477'));
  activePosts(n[2]).forEach(p=>dot(p.x,p.y,7,'#7fc4a0'));
  const px=WORLD.cx,py=WORLD.cy+65;
@@ -1609,17 +1611,17 @@ function drawBlueprint(counts){
 }
 function updateDeployment(){
  const values=ROLE_IDS.map(id=>Math.floor(Number($(id).value)||0));
- const invalid=values.some(value=>value<0||value>40);
+ const invalid=values.some(value=>value<0||value>MAX_ROLE);
  const total=values.reduce((sum,value)=>sum+value,0);
  $('deployment-total').textContent=total;
- $('deployment-error').textContent=invalid?'Each role must be between 0 and 40 soldiers.':total===0?'Choose at least one soldier.':total>80?'Maximum deployment is 80 soldiers.':'';
- $('start-btn').disabled=invalid||total===0||total>80;
- document.querySelectorAll('.step').forEach(b=>{const v=Math.floor(Number($(b.dataset.target).value)||0);b.disabled=Number(b.dataset.step)>0?(v>=40||total>=80):v<=0});
+ $('deployment-error').textContent=invalid?'Each role must be between 0 and '+MAX_ROLE+' soldiers.':total===0?'Choose at least one soldier.':total>MAX_TOTAL?'Maximum deployment is '+MAX_TOTAL+' soldiers.':'';
+ $('start-btn').disabled=invalid||total===0||total>MAX_TOTAL;
+ document.querySelectorAll('.step').forEach(b=>{const v=Math.floor(Number($(b.dataset.target).value)||0);const farm=b.dataset.target==='farmer-count';b.disabled=Number(b.dataset.step)>0?(farm?v>=MAX_FARMERS:(v>=MAX_ROLE||total>=MAX_TOTAL)):v<=0});
  document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('on',b.dataset.preset===values.join(',')));
  drawBlueprint(values);
 }
 ROLE_IDS.forEach(id=>$(id).addEventListener('input',updateDeployment));
-document.querySelectorAll('.step').forEach(b=>b.addEventListener('click',()=>{const inp=$(b.dataset.target);inp.value=clamp((Math.floor(Number(inp.value)||0))+Number(b.dataset.step),0,40);updateDeployment()}));
+document.querySelectorAll('.step').forEach(b=>b.addEventListener('click',()=>{const inp=$(b.dataset.target);inp.value=clamp((Math.floor(Number(inp.value)||0))+Number(b.dataset.step),0,b.dataset.target==='farmer-count'?MAX_FARMERS:MAX_ROLE);updateDeployment()}));
 document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.preset.split(',');ROLE_IDS.forEach((id,i)=>{$(id).value=v[i]});updateDeployment()}));
 updateDeployment();
 $('start-btn').addEventListener('click',start);$('menu-btn').addEventListener('click',mainMenu);$('over-menu-btn').addEventListener('click',mainMenu);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',()=>{if(runtimeError)location.reload();else start()});$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));

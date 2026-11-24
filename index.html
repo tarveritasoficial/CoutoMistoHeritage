@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#17251d">
   <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
   <title>Couto Misto Heritage</title>
-  <link rel="stylesheet" href="styles.css?v=20261124-realism1">
+  <link rel="stylesheet" href="styles.css?v=20261124-soldiers1">
 </head>
 <body>
   <main id="game-shell">
@@ -55,17 +55,21 @@
             </div>
             <div class="role-row">
               <div class="role-info"><b><i class="dt wall"></i>WALL DEFENDERS</b><small>Elite musketeers on the gates, bastions and walls</small></div>
-              <div class="stepper"><button type="button" class="step" data-target="wall-count" data-step="-1" aria-label="Fewer wall defenders">−</button><input id="wall-count" type="number" min="0" max="40" value="8" inputmode="numeric"><button type="button" class="step" data-target="wall-count" data-step="1" aria-label="More wall defenders">+</button></div>
+              <div class="stepper"><button type="button" class="step" data-target="wall-count" data-step="-1" aria-label="Fewer wall defenders">−</button><input id="wall-count" type="number" min="0" max="100" value="8" inputmode="numeric"><button type="button" class="step" data-target="wall-count" data-step="1" aria-label="More wall defenders">+</button></div>
             </div>
             <div class="role-row">
               <div class="role-info"><b><i class="dt guard"></i>PERSONAL GUARD</b><small>Swordsmen who follow you into the fight</small></div>
-              <div class="stepper"><button type="button" class="step" data-target="guard-count" data-step="-1" aria-label="Fewer personal guards">−</button><input id="guard-count" type="number" min="0" max="40" value="4" inputmode="numeric"><button type="button" class="step" data-target="guard-count" data-step="1" aria-label="More personal guards">+</button></div>
+              <div class="stepper"><button type="button" class="step" data-target="guard-count" data-step="-1" aria-label="Fewer personal guards">−</button><input id="guard-count" type="number" min="0" max="100" value="4" inputmode="numeric"><button type="button" class="step" data-target="guard-count" data-step="1" aria-label="More personal guards">+</button></div>
             </div>
             <div class="role-row">
               <div class="role-info"><b><i class="dt active"></i>ACTIVE DEFENDERS</b><small>Reserve swordsmen behind the gates and in the keep</small></div>
-              <div class="stepper"><button type="button" class="step" data-target="active-count" data-step="-1" aria-label="Fewer active defenders">−</button><input id="active-count" type="number" min="0" max="40" value="8" inputmode="numeric"><button type="button" class="step" data-target="active-count" data-step="1" aria-label="More active defenders">+</button></div>
+              <div class="stepper"><button type="button" class="step" data-target="active-count" data-step="-1" aria-label="Fewer active defenders">−</button><input id="active-count" type="number" min="0" max="100" value="8" inputmode="numeric"><button type="button" class="step" data-target="active-count" data-step="1" aria-label="More active defenders">+</button></div>
             </div>
-            <div class="deployment-total"><span>TOTAL SOLDIERS <em>(max 80)</em></span><strong id="deployment-total">20</strong></div>
+            <div class="role-row">
+              <div class="role-info"><b><i class="dt guard"></i>FARMERS PER FARM</b><small>Slingers who defend each farm field (not counted in the total)</small></div>
+              <div class="stepper"><button type="button" class="step" data-target="farmer-count" data-step="-1" aria-label="Fewer farmers">−</button><input id="farmer-count" type="number" min="0" max="16" value="8" inputmode="numeric"><button type="button" class="step" data-target="farmer-count" data-step="1" aria-label="More farmers">+</button></div>
+            </div>
+            <div class="deployment-total"><span>TOTAL SOLDIERS <em>(max 200)</em></span><strong id="deployment-total">20</strong></div>
             <div id="deployment-error" class="deployment-error" aria-live="polite"></div>
           </div>
           <p class="wall-note">Nothing enters the fortress until it breaks a <b>gate</b>, <b>wall</b> or <b>bastion</b>. Gates fall first, so keep them manned. Masons repair the walls between waves. The gates open for <b>you</b>: ride out and burn the four <b>enemy camps</b> to win.</p>
@@ -113,6 +117,6 @@
     </section>
     <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD · E CANNON</span></footer>
   </main>
-  <script src="game.js?v=20261124-realism1"></script>
+  <script src="game.js?v=20261124-soldiers1"></script>
 </body>
 </html>
