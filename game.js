@@ -809,7 +809,7 @@ let liveBulletCount=0;for(const b of bullets)if(b.life>0)bullets[liveBulletCount
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}let liveParticleCount=0;for(const p of particles)if(p.life>0)particles[liveParticleCount++]=p;particles.length=liveParticleCount;
 for(const f of floaters){f.y-=26*dt;f.life-=dt}let liveFloaterCount=0;for(const f of floaters)if(f.life>0)floaters[liveFloaterCount++]=f;floaters.length=liveFloaterCount;
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(!v.panic&&enemies.some(e=>e.hp>0&&dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
-if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));if(hudRefreshTimer>=.12){hudRefreshTimer=0;updateHud()}}
+if(victoryTimer<=0&&(player.hp<=0||fortress<=0))gameOver();camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));if(hudRefreshTimer>=.12){hudRefreshTimer=0;updateHud()}}
 function eliteDamage(){return 24}
 function nearestFriendly(e){let best=player,bd=dist(e,player);for(const g of friendlyUnits){if(g.hp>0&&dist(e,g)<bd){best=g;bd=dist(e,g)}}return best}
 function nearbyFriendly(e,max=520){const target=nearestFriendly(e);return dist(e,target)<=max?target:null}
