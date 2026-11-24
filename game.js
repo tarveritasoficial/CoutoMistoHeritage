@@ -3,6 +3,9 @@
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d');
 const ui = {menu:$('menu'),loading:$('loading'),hud:$('hud'),pause:$('pause'),over:$('gameover'),orders:$('orders'),mobile:$('mobile-controls'),wave:$('wave'),score:$('score'),guards:$('guards'),health:$('health-bar'),healthText:$('health-text'),fort:$('fort-bar'),fortText:$('fort-text'),ammo:$('ammo'),reload:$('reload-state'),banner:$('wave-banner'),toast:$('toast'),walls:$('walls'),camps:$('camps')};
+// Enemy strength: wave size and toughness multipliers.
+const DIFFICULTIES=[{name:'RECRUIT',count:.7,hp:.85},{name:'SOLDIER',count:1,hp:1},{name:'VETERAN',count:1.35,hp:1.25}];
+let difficulty=1;
 const MAX_ROLE=100,MAX_TOTAL=200,MAX_FARMERS=16;
 const WORLD = {w:4400,h:3600,cx:2200,cy:1800};
 const FACTIONS = {
@@ -408,7 +411,7 @@ function updateSheep(dt){
  sheep=sheep.filter(s=>!s.dead);cows=updateFarmAnimals(dt,cows);chickens=updateFarmAnimals(dt,chickens);
 }
 function victory(){
- state='victory';SFX.play('victory');recordRun(true);ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');
+ state='victory';showZoom(false);SFX.play('victory');recordRun(true);ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');
  const alive=guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length;
  const total=guards.length+escorts.length+defenders.length;
  $('victory-score').textContent=score.toLocaleString();$('victory-waves').textContent=wave;$('victory-soldiers').textContent=alive+'/'+total;
@@ -554,14 +557,17 @@ function updateBest(){
  const s=loadSave(),el=$('best-record');if(!el)return;
  el.textContent=s.runs?'BEST SCORE '+(s.bestScore||0)+' · BEST WAVE '+(s.bestWave||0)+' · VICTORIES '+(s.wins||0):'';
 }
-function saveDeployment(){writeSave({army:['wall-count','guard-count','active-count','farmer-count'].map(id=>Number($(id).value)||0)})}
+function saveDeployment(){writeSave({difficulty,army:['wall-count','guard-count','active-count','farmer-count'].map(id=>Number($(id).value)||0)})}
+function setDifficulty(i){difficulty=clamp(Math.floor(i)||0,0,2);document.querySelectorAll('[data-diff]').forEach(b=>b.classList.toggle('on',Number(b.dataset.diff)===difficulty))}
 function restoreDeployment(){
+ setDifficulty(loadSave().difficulty??1);
  const a=loadSave().army;if(!Array.isArray(a)||a.length!==4)return;
  ['wall-count','guard-count','active-count','farmer-count'].forEach((id,i)=>{const max=i===3?MAX_FARMERS:MAX_ROLE;$(id).value=clamp(Math.floor(a[i])||0,0,max)});
 }
-function start(){saveDeployment();resize();setZoom(defaultZoom());$('victory-video').pause();$('victory-video').currentTime=0;reset();spawnOpeningArmy();wave=1;waveActive=true;ui.wave.textContent='1';state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');syncTouchUI();banner('WAVE 1 · OPENING ASSAULT');if(touchUI()&&innerHeight>innerWidth)setTimeout(()=>{if(state==='playing')toast('Tip: rotate your phone to landscape for a wider view')},3200);toast('80 soldiers and 12 cannons from all four nations are advancing');last=performance.now()}
-function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove('hidden')}else if(state==='paused'){state='playing';ui.pause.classList.add('hidden');last=performance.now()}}function mainMenu(){$('victory-video').pause();$('victory-video').currentTime=0;state='menu';ui.menu.classList.remove('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');last=performance.now()}
-function gameOver(){state='over';SFX.play('defeat');const newBest=recordRun(false);$('over-eyebrow').textContent='THE FORTRESS HAS FALLEN';$('over-title').textContent='DEFEAT';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent=(newBest?'NEW BEST SCORE! ':'')+'Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length)}
+const showZoom=v=>$('zoom-controls').classList.toggle('hidden',!v);
+function start(){showZoom(true);saveDeployment();resize();setZoom(defaultZoom());$('victory-video').pause();$('victory-video').currentTime=0;reset();spawnOpeningArmy();wave=1;waveActive=true;ui.wave.textContent='1';state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');syncTouchUI();banner('WAVE 1 · OPENING ASSAULT');if(touchUI()&&innerHeight>innerWidth)setTimeout(()=>{if(state==='playing')toast('Tip: rotate your phone to landscape for a wider view')},3200);toast('80 soldiers and 12 cannons from all four nations are advancing');last=performance.now()}
+function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove('hidden')}else if(state==='paused'){state='playing';ui.pause.classList.add('hidden');last=performance.now()}}function mainMenu(){showZoom(false);$('victory-video').pause();$('victory-video').currentTime=0;state='menu';ui.menu.classList.remove('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');last=performance.now()}
+function gameOver(){state='over';showZoom(false);SFX.play('defeat');const newBest=recordRun(false);$('over-eyebrow').textContent='THE FORTRESS HAS FALLEN';$('over-title').textContent='DEFEAT';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent=(newBest?'NEW BEST SCORE! ':'')+DIFFICULTIES[difficulty].name+' · Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length)}
 function reload(){if(player.reload<=0&&player.ammo<player.maxAmmo){player.reload=1.25;toast('Reloading musket…')}}
 function shoot(from,dir,faction,damage=24,speed=520,siege=false){SFX.play(siege||damage>=80?'cannon':'musket',from.x,from.y);if(bullets.length<MAX_BULLETS)bullets.push({x:from.x+Math.cos(dir)*17,y:from.y+Math.sin(dir)*17,vx:Math.cos(dir)*speed,vy:Math.sin(dir)*speed,life:1.7,faction,damage,r:siege?5:4,siege});for(let i=0;i<4;i++)addParticle({x:from.x+Math.cos(dir)*12,y:from.y+Math.sin(dir)*12,vx:rand(-35,35)+Math.cos(dir)*rand(15,55),vy:rand(-35,35)+Math.sin(dir)*rand(15,55),life:rand(.12,.28),max:.28,color:'#f4d58c',r:rand(1,3)})}
 function sword(){if(player.sword>0)return;player.sword=.42;SFX.play('sword');let hit=0;for(const s of farmAnimals){if(s.hp>0&&dist(player,s)<(s.kind==='cow'?62:48)&&Math.abs(Math.atan2(Math.sin(angle(player,s)-player.dir),Math.cos(angle(player,s)-player.dir)))<1.25){damageAnimal(s,36);hit++}}for(const e of enemies){if(e.hp>0&&dist(player,e)<58&&Math.abs(Math.atan2(Math.sin(angle(player,e)-player.dir),Math.cos(angle(player,e)-player.dir)))<1.25){e.hp-=48;hit++ ;if(e.hp<=0)kill(e)}}for(const c of camps){if(!c.destroyed&&dist(player,c)<c.r+40){damageCamp(c,70);hit++}}if(hit)toast('Sword strike!')}
@@ -571,13 +577,13 @@ function spawnWave(){
  // fewer camps standing means smaller waves
  const active=enemies.reduce((n,e)=>n+(e.hp>0?1:0),0);
  const available=Math.max(0,MAX_ACTIVE_ENEMIES-active);
- const count=Math.min(MAX_WAVE_ENEMIES,available,Math.max(12,Math.ceil((18+Math.min(wave,14)*6)*alive.length/camps.length)));
+ const D=DIFFICULTIES[difficulty],count=Math.min(MAX_WAVE_ENEMIES,available,Math.max(Math.round(12*D.count),Math.ceil((18+Math.min(wave,14)*6)*alive.length/camps.length*D.count)));
  if(count<=0)return;
  const waveGroups=[];
  for(let i=0;i<count;i++){
   const campIndex=i%alive.length,camp=alive[campIndex];let type='rifleman';const roll=Math.random();
   if(wave>=7&&roll<.045)type='elephant';else if(wave>=3&&roll<.15)type='cavalry';else if(wave>=2&&roll<.34)type='archer';else if(wave>=2&&roll<.52)type='spearman';else if(roll<(wave>=2?.68:.3))type='swordsman';
-  const e=makeSoldier(camp.x+rand(-90,90),camp.y+rand(-90,90),camp.faction,type,false);e.hp+=Math.min(45,Math.floor(wave*.6));e.max=e.hp;
+  const e=makeSoldier(camp.x+rand(-90,90),camp.y+rand(-90,90),camp.faction,type,false);e.hp=Math.round((e.hp+Math.min(45,Math.floor(wave*.6)))*D.hp);e.max=e.hp;
   const groupIndex=Math.floor(i/6),groupKey=campIndex+':'+groupIndex;
   let formation=waveGroups.find(g=>g.key===groupKey);
   if(!formation){formation={key:groupKey,members:[],leader:null,x:e.x,y:e.y,dir:angle(e,{x:WORLD.cx,y:WORLD.cy}),kind:groupIndex%2?'line':'wedge'};waveGroups.push(formation)}
@@ -1447,14 +1453,28 @@ function drawElephant(c,f,wp){
  disc(-1,0,3.6,f.dark);disc(-1,0,2.3,'#d8b990');
  disc(16,0,4.3,'#d8b990');disc(16,0,5.4,f.b);disc(16,0,3.2,'#d8b990');
 }
+// Level of detail: when many units are on screen (or zoomed far out) foot soldiers get a cheaper silhouette.
+let drawnThisFrame=0,crowded=false;
+function updateCrowding(){crowded=drawnThisFrame>(crowded?100:135)||zoom<.7;drawnThisFrame=0}
+function drawSimpleSoldier(c,f,isPlayer,wp){
+ const sw=c.moving?Math.sin(wp)*3.5:0,peasant=c.peasant,coat=isPlayer?'#244b36':peasant?'#9b7548':c.friendly&&!c.elite?'#8b6843':f.a;
+ oval(1,3,10,12,'rgba(15,20,14,.26)');oval(sw,-4.6,4,2.6,'#22190f');oval(-sw,4.6,4,2.6,'#22190f');
+ oval(0,0,7.6,11,coat);line(-5,-8,5,6,'#e6dfc8',1.5);line(-5,8,5,-6,'#e6dfc8',1.5);
+ if(c.type==='spearman')line(-9,2,40,1.2,'#8a6a3f',2.2);else if(c.type==='swordsman'&&!peasant)line(8,2,26,1,'#e4e8ea',2.3);else if(c.type==='archer'&&!peasant)disc(13,0,3,'#5a3e26');else if(!peasant)line(2,2,34,0,'#4a4338',2.4);
+ disc(1,0,5.4,'#d8b990');
+ if(peasant||(c.friendly&&!c.elite&&!isPlayer))disc(0,0,8.4,'#b99a5e'),disc(0,0,4.4,'#9b7e48');else oval(0,0,c.type==='rifleman'?5:4.4,c.type==='rifleman'?5:8.2,f.dark);
+ if(isPlayer){ctx.strokeStyle='#f6df9a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,17,0,TAU);ctx.stroke()}
+ if(c.elite){ctx.strokeStyle='#f1d477';ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(0,0,15,0,TAU);ctx.stroke()}
+}
 function drawCharacter(c,isPlayer=false){
- if(!onScreen(c.x,c.y,70/zoom))return;
+ if(!onScreen(c.x,c.y,70/zoom))return;drawnThisFrame++;
  const f=FACTIONS[c.faction]||FACTIONS.couto,type=isPlayer?'player':c.type;
  const wp=walkPhase(c,type==='elephant'?.06:type==='cavalry'?.085:.2);
  ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.dir||0);
  if(type==='cannon'){drawCannon(0,0,0);ctx.fillStyle=f.a;ctx.fillRect(-3,-12,9,6);ctx.fillStyle=f.b;ctx.fillRect(-3,-10,9,2)}
  else if(type==='elephant')drawElephant(c,f,wp);
  else if(type==='cavalry')drawHorseman(c,f,wp);
+ else if(crowded&&!isPlayer)drawSimpleSoldier(c,f,false,wp);
  else if(c.peasant)drawPeasant(c,f,wp);
  else drawSoldier(c,f,isPlayer,wp);
  ctx.restore();
@@ -1469,7 +1489,7 @@ function drawCorpse(k){
  else{oval(0,0,8,5.4,k.faction==='couto'?'#8b6843':f.a);line(-4,-4,4,3,'#e6dfc8',1.2);oval(8,1,3.6,3.4,'#d8b990');oval(9,1,4,4.2,f.dark);line(-6,5,-14,7,'#22190f',2.6);line(-6,-4,-13,-6,'#22190f',2.6)}
  ctx.restore();
 }
-function draw(){ctx.clearRect(0,0,vw,vh);drawTerrain();ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
+function draw(){updateCrowding();ctx.clearRect(0,0,vw,vh);drawTerrain();ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
 for(const k of corpses)drawCorpse(k);
 for(const v of villagers){ctx.fillStyle='#d1c19c';ctx.beginPath();ctx.arc(v.x,v.y,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#594d3b';ctx.fillRect(v.x-3,v.y-3,6,5)}
 for(const s of sheep)drawSheep(s);for(const a of cows)drawFarmAnimal(a);for(const a of chickens)drawFarmAnimal(a);
@@ -1672,7 +1692,8 @@ function updateDeployment(){
 ROLE_IDS.forEach(id=>$(id).addEventListener('input',updateDeployment));
 document.querySelectorAll('.step').forEach(b=>b.addEventListener('click',()=>{const inp=$(b.dataset.target);inp.value=clamp((Math.floor(Number(inp.value)||0))+Number(b.dataset.step),0,b.dataset.target==='farmer-count'?MAX_FARMERS:MAX_ROLE);updateDeployment()}));
 document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.preset.split(',');ROLE_IDS.forEach((id,i)=>{$(id).value=v[i]});updateDeployment()}));
-restoreDeployment();updateDeployment();updateBest();
+document.querySelectorAll('[data-diff]').forEach(b=>b.addEventListener('click',()=>setDifficulty(Number(b.dataset.diff))));
+showZoom(false);restoreDeployment();updateDeployment();updateBest();
 $('start-btn').addEventListener('click',start);$('menu-btn').addEventListener('click',mainMenu);$('over-menu-btn').addEventListener('click',mainMenu);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',()=>{if(runtimeError)location.reload();else start()});$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));
 $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();touchFire=true});$('touch-fire').addEventListener('pointerup',()=>touchFire=false);$('touch-fire').addEventListener('pointercancel',()=>touchFire=false);$('touch-fire').addEventListener('lostpointercapture',()=>touchFire=false);$('touch-sword').addEventListener('pointerdown',e=>{e.preventDefault();sword()});$('touch-reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
 $('touch-formation').addEventListener('pointerdown',e=>{e.preventDefault();if(state==='playing'){escortFormation=escortFormation==='wedge'?'line':'wedge';$('touch-formation').textContent=escortFormation==='line'?'WEDGE':'LINE';toast('Guard formation · '+escortFormation.toUpperCase())}});
