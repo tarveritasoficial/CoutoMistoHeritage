@@ -262,3 +262,5 @@ html,body{overscroll-behavior:none}
 .mobile-actions button{touch-action:none}
 
 @media(orientation:landscape) and (max-height:500px){.toast{bottom:calc(100px + env(safe-area-inset-bottom))!important}#hud .camp-objective-track{display:block}}
+
+.small-btn.off{opacity:.45;text-decoration:line-through}
