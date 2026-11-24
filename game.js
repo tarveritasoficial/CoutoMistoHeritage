@@ -19,7 +19,7 @@ const keys = Object.create(null), mouse = {x:0,y:0,down:false};
 let escortFormation='wedge',friendlyUnits=[],farmAnimals=[],peasants=[],hudRefreshTimer=0;
 let dpr=1, vw=0,vh=0, camera={x:WORLD.cx,y:WORLD.cy}, zoom=1, state='menu', last=0, elapsed=0, wave=0, score=0, fortress=100, spawnClock=0, waveGap=3, enemies=[], bullets=[], particles=[], guards=[], escorts=[], cavalryCharges=[], defenders=[], villagers=[], sheep=[], cows=[], chickens=[], walls=[], camps=[], victoryTimer=0, waveActive=false, player, cannonCooldown=0, toastTimer=0, bannerTimer=0, reloadTimer=0, swordTimer=0, mobileMove={x:0,y:0}, mobileAim={x:0,y:0}, mobileAimActive=false, touchFire=false, idCounter=0, floaters=[];
 const MAX_ACTIVE_ENEMIES=220,MAX_WAVE_ENEMIES=72,MAX_PARTICLES=900,MAX_BULLETS=320;
-const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y), angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
+const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), dist=(a,b)=>{const dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy)}, angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
 function addParticle(p){if(particles.length<MAX_PARTICLES)particles.push(p)}
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);vw=r.width;vh=r.height;canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
 window.addEventListener('resize',resize); resize();
@@ -662,9 +662,9 @@ function spawnOpeningArmy(){
 }
 const corpses=[];
 function kill(e){if(e.dead)return;e.dead=true;SFX.play('kill',e.x,e.y);if(e.type!=='cannon'){corpses.push({x:e.x,y:e.y,dir:(e.dir||0)+rand(.8,2.2),faction:e.faction,type:e.type,life:16,max:16});if(corpses.length>90)corpses.shift()}const pts=e.type==='elephant'?120:e.type==='cavalry'?55:25;score+=pts;floaters.push({x:e.x,y:e.y-12,text:'+'+pts,life:1,max:1});for(let i=0;i<9;i++)addParticle({x:e.x,y:e.y,vx:rand(-80,80),vy:rand(-80,80),life:rand(.25,.65),max:.65,color:i%2?'#b8a27a':'#6e3d32',r:rand(2,5)})}
-function nearestEnemy(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
+function nearestEnemy(p,max=900){let best=null,bd=max*max;for(const e of enemies){if(e.hp<=0)continue;const dx=p.x-e.x,dy=p.y-e.y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=e}}return best}
 // Reserves hold their line: they only react to enemies inside the fort or pressing against its walls.
-function nearestThreat(p,max=900){let best=null,bd=max;for(const e of enemies){if(e.hp<=0||Math.hypot(e.x-WORLD.cx,e.y-WORLD.cy)>440)continue;const d=dist(p,e);if(d<bd){bd=d;best=e}}return best}
+function nearestThreat(p,max=900){let best=null,bd=max*max;for(const e of enemies){if(e.hp<=0)continue;const cx=e.x-WORLD.cx,cy=e.y-WORLD.cy;if(cx*cx+cy*cy>193600)continue;const dx=p.x-e.x,dy=p.y-e.y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=e}}return best}
 function update(dt){if(state!=='playing')return;const breachOpen=walls.some(w=>w.hp<=0);if(victoryTimer>0){victoryTimer-=dt;if(victoryTimer<=0){victory();return}}elapsed+=dt;hudRefreshTimer+=dt;toastTimer=Math.max(0,toastTimer-dt);if(!toastTimer)ui.toast.classList.remove('show');bannerTimer=Math.max(0,bannerTimer-dt);if(!bannerTimer)ui.banner.classList.remove('show');
 const mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+mobileMove.x,my=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+mobileMove.y;const ml=Math.hypot(mx,my)||1,mobileMoving=Math.hypot(mobileMove.x,mobileMove.y)>.12;player.vx=mx/ml*190;player.vy=my/ml*190;moveLand(player,player.vx*dt,player.vy*dt);pushOutOfWalls(player,12,true);
 const aim=worldPoint(mouse.x,mouse.y);if(mobileAimActive)player.dir=Math.atan2(mobileAim.y,mobileAim.x);else if(mobileMoving)player.dir=Math.atan2(mobileMove.y,mobileMove.x);else if(mouse.x||mouse.y)player.dir=angle(player,aim);if(touchFire&&!mobileAimActive&&!mobileMoving){const target=nearestEnemy(player,1000);if(target)player.dir=angle(player,target);else{const camp=camps.filter(c=>!c.destroyed).sort((a,b)=>dist(player,a)-dist(player,b))[0];if(camp)player.dir=angle(player,camp)}}player.fire=Math.max(0,player.fire-dt);player.sword=Math.max(0,player.sword-dt);player.invuln=Math.max(0,player.invuln-dt);
@@ -871,7 +871,7 @@ for(const f of floaters){f.y-=26*dt;f.life-=dt}let liveFloaterCount=0;for(const 
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(!v.panic&&enemies.some(e=>e.hp>0&&dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
 hurtBuzz();if(victoryTimer<=0&&(player.hp<=0||fortress<=0))gameOver();SFX.listener.x=player.x;SFX.listener.y=player.y;camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));if(hudRefreshTimer>=.12){hudRefreshTimer=0;updateHud()}}
 function eliteDamage(){return 24}
-function nearestFriendly(e){let best=player,bd=dist(e,player);for(const g of friendlyUnits){if(g.hp>0&&dist(e,g)<bd){best=g;bd=dist(e,g)}}return best}
+function nearestFriendly(e){let best=player,dx=e.x-player.x,dy=e.y-player.y,bd=dx*dx+dy*dy;for(const g of friendlyUnits){if(g.hp<=0)continue;dx=e.x-g.x;dy=e.y-g.y;const d=dx*dx+dy*dy;if(d<bd){best=g;bd=d}}return best}
 function nearbyFriendly(e,max=520){const target=nearestFriendly(e);return dist(e,target)<=max?target:null}
 function onScreen(x,y,m=60){const hw=vw/(2*zoom),hh=vh/(2*zoom);return x>camera.x-hw-m&&x<camera.x+hw+m&&y>camera.y-hh-m&&y<camera.y+hh+m}
 function drawTerrainDetails(){
