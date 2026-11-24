@@ -13,6 +13,7 @@ https://tarveritasoficial.github.io/CoutoMistoHeritage/
 - **Left mouse button:** fire musket
 - **Space:** sword attack
 - **R:** reload
+- **M:** toggle sound (also the ♪ button)
 - **E:** fire the bastion cannon
 - **F:** toggle personal-guard formation (wedge / line)
 - **F3:** debug overlay
@@ -47,3 +48,8 @@ https://tarveritasoficial.github.io/CoutoMistoHeritage/
 Every push to `main` triggers the Pages workflow. In repository settings, set **Settings → Pages → Build and deployment → Source** to **Deploy from a branch**, choose **gh-pages** and **/(root)**, then save.
 
 Historical note: this is a fictionalized, historically inspired game setting, not a documentary reconstruction of a specific battle.
+
+## Extras
+
+- Procedural battlefield sound (no audio files): gunfire, cannons, swords, wall impacts, wave horns.
+- Best score, best wave and victories are saved in your browser, along with your last garrison setup.

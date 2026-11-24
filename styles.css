@@ -262,3 +262,6 @@ html,body{overscroll-behavior:none}
 .mobile-actions button{touch-action:none}
 
 @media(orientation:landscape) and (max-height:500px){.toast{bottom:calc(100px + env(safe-area-inset-bottom))!important}#hud .camp-objective-track{display:block}}
+
+.small-btn.off{opacity:.45;text-decoration:line-through}
+.best-record{min-height:14px;margin:-4px 0 10px;font-size:9px;letter-spacing:2px;color:#d4b36a;font-weight:700}

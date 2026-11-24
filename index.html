@@ -13,6 +13,7 @@
     <header class="topbar">
       <div class="brand"><span class="crest">✦</span><div><strong>COUTO MISTO</strong><small>HERITAGE · FORTRESS DEFENCE</small></div></div>
       <div class="top-stats"><span>WAVE <b id="wave">0</b></span><span>SCORE <b id="score">0</b></span><span>GUARDS <b id="guards">8/8</b></span><span>WALLS <b id="walls">20/20</b></span><span>CAMPS <b id="camps">4/4</b></span></div>
+      <button id="sound-btn" class="small-btn" type="button" aria-label="Toggle sound" title="Sound on (M)">♪</button>
       <button id="pause-btn" class="small-btn" aria-label="Pause" title="Pause (Esc)">Ⅱ</button>
     </header>
     <section id="stage">
@@ -38,6 +39,7 @@
           <div class="eyebrow">A HISTORICAL FORTRESS DEFENCE</div>
           <h1>COUTO MISTO<br><em>HERITAGE</em></h1>
           <p>Stand with the defenders. Hold the walls. Protect the free lands.</p>
+          <div id="best-record" class="best-record" aria-live="polite"></div>
           <canvas id="fort-preview" width="640" height="560" aria-label="Fortress layout preview showing where your soldiers will stand"></canvas>
           <div class="preview-legend">
             <span><i class="sw gate"></i>Gate · weakest point</span><span><i class="sw wall"></i>Wall</span><span><i class="sw bastion"></i>Bastion</span>
@@ -118,6 +120,7 @@
     </section>
     <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD · E CANNON</span></footer>
   </main>
-  <script src="game.js?v=20261124-breachstagereset1"></script>
+  <script src="audio.js?v=20261124-save1"></script>
+  <script src="game.js?v=20261124-save1"></script>
 </body>
 </html>
