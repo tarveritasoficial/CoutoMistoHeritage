@@ -477,7 +477,7 @@ function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){ret
 function reset(){
  cavalryCharges=[];for(const r of RIVER_DEFS)for(const b of r.bridges)b.chargeSent=false;
  camera.x=clamp(WORLD.cx,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(WORLD.cy,vh/(2*zoom),WORLD.h-vh/(2*zoom));
- wave=0;score=0;fortress=100;escortFormation='wedge';elapsed=0;campHintAt=-99;spawnClock=0;waveGap=2;
+ wave=0;score=0;fortress=100;escortFormation='wedge';$('touch-formation').textContent='LINE';elapsed=0;campHintAt=-99;spawnClock=0;waveGap=2;
  enemies=[];bullets=[];particles=[];floaters=[];villagers=[];sheep=[];guards=[];escorts=[];defenders=[];peasants=[];idCounter=0;
  const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
@@ -1412,6 +1412,7 @@ aimJoy.addEventListener('pointerdown',e=>{e.preventDefault();aimJoyId=e.pointerI
 window.addEventListener('keydown',e=>{if(e.code==='Escape'){if(!ui.orders.classList.contains('hidden')){ui.orders.classList.add('hidden');return}pause()}});
 // Drop held keys / fire when the window loses focus so the soldier never runs away on its own.
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouse.down=false;touchFire=false;resetJoy();resetAim()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause()});
 window.addEventListener('pointercancel',()=>{mouse.down=false;touchFire=false;resetJoy();resetAim()});
 // A mouse-clicked button keeps focus; Space (sword) would then re-activate it. Release focus after pointer clicks.
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('button');if(b&&e.detail>0)b.blur()});
