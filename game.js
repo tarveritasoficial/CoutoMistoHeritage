@@ -408,7 +408,7 @@ function updateSheep(dt){
  sheep=sheep.filter(s=>!s.dead);cows=updateFarmAnimals(dt,cows);chickens=updateFarmAnimals(dt,chickens);
 }
 function victory(){
- state='victory';SFX.play('victory');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');
+ state='victory';SFX.play('victory');recordRun(true);ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');
  const alive=guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length;
  const total=guards.length+escorts.length+defenders.length;
  $('victory-score').textContent=score.toLocaleString();$('victory-waves').textContent=wave;$('victory-soldiers').textContent=alive+'/'+total;
@@ -540,9 +540,28 @@ let lastPlayerHp=100,buzzAt=0;
 function hurtBuzz(){if(player.hp<lastPlayerHp-1)SFX.play('hurt');if(!touchSeen&&!matchMedia('(pointer:coarse)').matches)return;if(player.hp<lastPlayerHp-1&&elapsed-buzzAt>.25&&navigator.vibrate){buzzAt=elapsed;navigator.vibrate(player.hp<=0?[80,40,80]:25)}lastPlayerHp=player.hp}
 function syncTouchUI(){ui.mobile.classList.toggle('hidden',!touchUI()||state!=='playing'&&state!=='paused')}
 window.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&!touchSeen){touchSeen=true;syncTouchUI()}},{capture:true,passive:true});
-function start(){resize();setZoom(defaultZoom());$('victory-video').pause();$('victory-video').currentTime=0;reset();spawnOpeningArmy();wave=1;waveActive=true;ui.wave.textContent='1';state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');syncTouchUI();banner('WAVE 1 · OPENING ASSAULT');if(touchUI()&&innerHeight>innerWidth)setTimeout(()=>{if(state==='playing')toast('Tip: rotate your phone to landscape for a wider view')},3200);toast('80 soldiers and 12 cannons from all four nations are advancing');last=performance.now()}
+// ---- Saved progress: best run and the last army you deployed (browser storage may be unavailable) ----
+const SAVE_KEY='cmh-save-v1';
+function loadSave(){try{return JSON.parse(localStorage.getItem(SAVE_KEY))||{}}catch(e){return {}}}
+function writeSave(patch){try{localStorage.setItem(SAVE_KEY,JSON.stringify(Object.assign(loadSave(),patch)))}catch(e){}}
+// Returns true when this run beat the saved best score.
+function recordRun(won){
+ const s=loadSave(),newBest=score>(s.bestScore||0);
+ writeSave({bestScore:Math.max(score,s.bestScore||0),bestWave:Math.max(wave,s.bestWave||0),wins:(s.wins||0)+(won?1:0),runs:(s.runs||0)+1});
+ updateBest();return newBest&&score>0;
+}
+function updateBest(){
+ const s=loadSave(),el=$('best-record');if(!el)return;
+ el.textContent=s.runs?'BEST SCORE '+(s.bestScore||0)+' · BEST WAVE '+(s.bestWave||0)+' · VICTORIES '+(s.wins||0):'';
+}
+function saveDeployment(){writeSave({army:['wall-count','guard-count','active-count','farmer-count'].map(id=>Number($(id).value)||0)})}
+function restoreDeployment(){
+ const a=loadSave().army;if(!Array.isArray(a)||a.length!==4)return;
+ ['wall-count','guard-count','active-count','farmer-count'].forEach((id,i)=>{const max=i===3?MAX_FARMERS:MAX_ROLE;$(id).value=clamp(Math.floor(a[i])||0,0,max)});
+}
+function start(){saveDeployment();resize();setZoom(defaultZoom());$('victory-video').pause();$('victory-video').currentTime=0;reset();spawnOpeningArmy();wave=1;waveActive=true;ui.wave.textContent='1';state='playing';ui.menu.classList.add('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.remove('hidden');syncTouchUI();banner('WAVE 1 · OPENING ASSAULT');if(touchUI()&&innerHeight>innerWidth)setTimeout(()=>{if(state==='playing')toast('Tip: rotate your phone to landscape for a wider view')},3200);toast('80 soldiers and 12 cannons from all four nations are advancing');last=performance.now()}
 function pause(){if(state==='playing'){state='paused';ui.pause.classList.remove('hidden')}else if(state==='paused'){state='playing';ui.pause.classList.add('hidden');last=performance.now()}}function mainMenu(){$('victory-video').pause();$('victory-video').currentTime=0;state='menu';ui.menu.classList.remove('hidden');ui.pause.classList.add('hidden');ui.over.classList.add('hidden');$('victory-screen').classList.add('hidden');ui.orders.classList.add('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');last=performance.now()}
-function gameOver(){state='over';SFX.play('defeat');$('over-eyebrow').textContent='THE FORTRESS HAS FALLEN';$('over-title').textContent='DEFEAT';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent='Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length)}
+function gameOver(){state='over';SFX.play('defeat');const newBest=recordRun(false);$('over-eyebrow').textContent='THE FORTRESS HAS FALLEN';$('over-title').textContent='DEFEAT';ui.over.classList.remove('hidden');ui.hud.classList.add('hidden');ui.mobile.classList.add('hidden');$('final-stats').textContent=(newBest?'NEW BEST SCORE! ':'')+'Waves held: '+wave+' · Score: '+score+' · Defenders remaining: '+(guards.filter(g=>g.hp>0).length+escorts.filter(g=>g.hp>0).length+defenders.filter(g=>g.hp>0).length)+'/'+(guards.length+escorts.length+defenders.length)}
 function reload(){if(player.reload<=0&&player.ammo<player.maxAmmo){player.reload=1.25;toast('Reloading musket…')}}
 function shoot(from,dir,faction,damage=24,speed=520,siege=false){SFX.play(siege||damage>=80?'cannon':'musket',from.x,from.y);if(bullets.length<MAX_BULLETS)bullets.push({x:from.x+Math.cos(dir)*17,y:from.y+Math.sin(dir)*17,vx:Math.cos(dir)*speed,vy:Math.sin(dir)*speed,life:1.7,faction,damage,r:siege?5:4,siege});for(let i=0;i<4;i++)addParticle({x:from.x+Math.cos(dir)*12,y:from.y+Math.sin(dir)*12,vx:rand(-35,35)+Math.cos(dir)*rand(15,55),vy:rand(-35,35)+Math.sin(dir)*rand(15,55),life:rand(.12,.28),max:.28,color:'#f4d58c',r:rand(1,3)})}
 function sword(){if(player.sword>0)return;player.sword=.42;SFX.play('sword');let hit=0;for(const s of farmAnimals){if(s.hp>0&&dist(player,s)<(s.kind==='cow'?62:48)&&Math.abs(Math.atan2(Math.sin(angle(player,s)-player.dir),Math.cos(angle(player,s)-player.dir)))<1.25){damageAnimal(s,36);hit++}}for(const e of enemies){if(e.hp>0&&dist(player,e)<58&&Math.abs(Math.atan2(Math.sin(angle(player,e)-player.dir),Math.cos(angle(player,e)-player.dir)))<1.25){e.hp-=48;hit++ ;if(e.hp<=0)kill(e)}}for(const c of camps){if(!c.destroyed&&dist(player,c)<c.r+40){damageCamp(c,70);hit++}}if(hit)toast('Sword strike!')}
@@ -1653,7 +1672,7 @@ function updateDeployment(){
 ROLE_IDS.forEach(id=>$(id).addEventListener('input',updateDeployment));
 document.querySelectorAll('.step').forEach(b=>b.addEventListener('click',()=>{const inp=$(b.dataset.target);inp.value=clamp((Math.floor(Number(inp.value)||0))+Number(b.dataset.step),0,b.dataset.target==='farmer-count'?MAX_FARMERS:MAX_ROLE);updateDeployment()}));
 document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.preset.split(',');ROLE_IDS.forEach((id,i)=>{$(id).value=v[i]});updateDeployment()}));
-updateDeployment();
+restoreDeployment();updateDeployment();updateBest();
 $('start-btn').addEventListener('click',start);$('menu-btn').addEventListener('click',mainMenu);$('over-menu-btn').addEventListener('click',mainMenu);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',()=>{if(runtimeError)location.reload();else start()});$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));
 $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();touchFire=true});$('touch-fire').addEventListener('pointerup',()=>touchFire=false);$('touch-fire').addEventListener('pointercancel',()=>touchFire=false);$('touch-fire').addEventListener('lostpointercapture',()=>touchFire=false);$('touch-sword').addEventListener('pointerdown',e=>{e.preventDefault();sword()});$('touch-reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
 $('touch-formation').addEventListener('pointerdown',e=>{e.preventDefault();if(state==='playing'){escortFormation=escortFormation==='wedge'?'line':'wedge';$('touch-formation').textContent=escortFormation==='line'?'WEDGE':'LINE';toast('Guard formation · '+escortFormation.toUpperCase())}});
