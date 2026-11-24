@@ -742,8 +742,13 @@ for(const e of enemies){
     if(breach){e.breachWallId=breach.id;e.breachStage=0}
    }
    if(breach){
-    const outer={x:breach.mx+breach.nx*48,y:breach.my+breach.ny*48};
-    const inner={x:breach.mx-breach.nx*58,y:breach.my-breach.ny*58};
+    // Bastions are circular and their centres sit outside the curtain line.
+    // Offset waypoints beyond each structure's thickness so the inner waypoint
+    // is actually inside the fortress for both bastion and curtain breaches.
+    const breachThickness=breach.kind==='bastion'?breach.r:breach.half;
+    const outerOffset=breachThickness+52,innerOffset=breachThickness+68;
+    const outer={x:breach.mx+breach.nx*outerOffset,y:breach.my+breach.ny*outerOffset};
+    const inner={x:breach.mx-breach.nx*innerOffset,y:breach.my-breach.ny*innerOffset};
     if(e.breachStage!==1&&dist(e,outer)<28)e.breachStage=1;
     const entry=e.breachStage===1?inner:outer;
     const assaultSpeed=e.type==='elephant'?42:e.type==='cavalry'?105:e.type==='spearman'?68:82;
