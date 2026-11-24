@@ -1358,7 +1358,18 @@ $('zoom-in').addEventListener('click',()=>setZoom(zoom*1.2));
 $('zoom-out').addEventListener('click',()=>setZoom(zoom/1.2));
 $('zoom-reset').addEventListener('click',()=>setZoom(1));
 canvas.addEventListener('wheel',e=>{if(state!=='playing'&&state!=='paused')return;e.preventDefault();setZoom(zoom*(e.deltaY<0?1.12:1/1.12))},{passive:false});
-canvas.addEventListener('pointermove',e=>{const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y});
+// Two-finger pinch on the map zooms; a touch drag no longer hijacks the mouse-aim position.
+const pinchPts=new Map();let pinchLast=0;
+const pinchDist=()=>{const [a,b]=[...pinchPts.values()];return Math.hypot(a.x-b.x,a.y-b.y)};
+canvas.addEventListener('pointermove',e=>{
+ if(e.pointerType!=='touch'){const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y;return}
+ if(!pinchPts.has(e.pointerId))return;
+ pinchPts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pinchPts.size===2){const d=pinchDist();if(pinchLast>0&&(state==='playing'||state==='paused'))setZoom(zoom*d/pinchLast);pinchLast=d}
+});
+canvas.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch')return;pinchPts.set(e.pointerId,{x:e.clientX,y:e.clientY});pinchLast=pinchPts.size===2?pinchDist():0});
+const pinchEnd=e=>{if(pinchPts.delete(e.pointerId))pinchLast=0};
+window.addEventListener('pointerup',pinchEnd);window.addEventListener('pointercancel',pinchEnd);
 canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){mouse.down=true;const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y}});
 window.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')mouse.down=false});
 window.addEventListener('keydown',e=>{if(e.code==='F3'){e.preventDefault();debugOverlay=!debugOverlay;return}keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Space'&&state==='playing')sword();if(e.code==='KeyF'&&state==='playing'){escortFormation=escortFormation==='wedge'?'line':'wedge';banner(escortFormation==='line'?'GUARD FORMATION · LINE':'GUARD FORMATION · WEDGE');toast('Personal guard formation changed')}if(e.code==='KeyR'&&state==='playing')reload();if(e.code==='KeyE'&&state==='playing'){if(cannonCooldown<=0){shoot(player,player.dir,'couto',88,390);cannonCooldown=4.5;toast('Bastion cannon fired · reloading')}else toast('Cannon reloading…')}});window.addEventListener('keyup',e=>keys[e.code]=false);
