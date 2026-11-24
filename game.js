@@ -1416,6 +1416,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='p
 window.addEventListener('pointercancel',()=>{mouse.down=false;touchFire=false;resetJoy();resetAim()});
 // A mouse-clicked button keeps focus; Space (sword) would then re-activate it. Release focus after pointer clicks.
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('button');if(b&&e.detail>0)b.blur()});
+$('stage').addEventListener('contextmenu',e=>e.preventDefault());
 const victoryVideo=$('victory-video'),victorySound=$('victory-sound');
 $('victory-skip').addEventListener('click',showVictoryResults);
 // Victory results buttons were previously unwired (dead buttons).

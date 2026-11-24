@@ -250,3 +250,9 @@ button,.step,.stepper button{min-height:40px;touch-action:manipulation}
  button{ -webkit-tap-highlight-color:transparent}
  canvas{touch-action:none}
 }
+
+/* ---- Touch polish: no pull-to-refresh, text selection, long-press menus or double-tap zoom while playing ---- */
+html,body{overscroll-behavior:none}
+#stage{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.mobile-controls,.mobile-controls *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:none}
+.mobile-actions button{touch-action:none}
