@@ -197,6 +197,10 @@ button,.step,.stepper button{min-height:40px;touch-action:manipulation}
  #hud .meter{width:clamp(98px,29vw,130px);min-width:0;padding:5px 6px}
  #hud .ammo{min-width:70px;padding:5px 6px}
  #hud .camp-objectives{bottom:calc(128px + env(safe-area-inset-bottom));left:6px;width:145px;padding:6px}
+ #hud .camp-objective-track{display:none}
+ #hud .camp-objectives{bottom:calc(122px + env(safe-area-inset-bottom));width:132px}
+ .camp-objective-row{margin:0!important;padding:1px 0!important}
+ .toast{bottom:calc(232px + env(safe-area-inset-bottom))!important}
  .camp-objectives-heading{font-size:6px}.camp-objectives-heading b{font-size:6px}
  .camp-objective-top b,.camp-objective-value{font-size:6px}
  .wave-banner{top:58px;font-size:11px;letter-spacing:1.5px;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
@@ -250,3 +254,11 @@ button,.step,.stepper button{min-height:40px;touch-action:manipulation}
  button{ -webkit-tap-highlight-color:transparent}
  canvas{touch-action:none}
 }
+
+/* ---- Touch polish: no pull-to-refresh, text selection, long-press menus or double-tap zoom while playing ---- */
+html,body{overscroll-behavior:none}
+#stage{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.mobile-controls,.mobile-controls *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:none}
+.mobile-actions button{touch-action:none}
+
+@media(orientation:landscape) and (max-height:500px){.toast{bottom:calc(100px + env(safe-area-inset-bottom))!important}#hud .camp-objective-track{display:block}}
