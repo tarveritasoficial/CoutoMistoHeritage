@@ -161,7 +161,7 @@ const RIVER_COLLISION_CELL=96,RIVER_COLLISION_GRID=new Map();
   }
  }
 })();
-let riverCollisionChecks=0;
+let riverCollisionChecks=0,campHintAt=-99;
 function riverBlocked(x,y){
  const bucket=RIVER_COLLISION_GRID.get(Math.floor(x/RIVER_COLLISION_CELL)+','+Math.floor(y/RIVER_COLLISION_CELL));
  if(!bucket)return false;
@@ -317,7 +317,7 @@ function buildCamps(){
 function damageCamp(c,amount){
  if(c.destroyed)return;
  // Enemy camps are protected through waves 1–9. Damage becomes possible once wave 10 begins.
- if(wave<10){c.flash=.08;return}
+ if(wave<10){c.flash=.08;if(elapsed-campHintAt>6){campHintAt=elapsed;toast('The camps are fortified until wave 10 · hold the fortress')}return}
  c.hp=Math.max(0,c.hp-amount);c.flash=.14;
  for(let i=0;i<3;i++)addParticle({x:c.x+rand(-40,40),y:c.y+rand(-40,40),vx:rand(-50,50),vy:rand(-70,-10),life:rand(.3,.7),max:.7,color:i%2?'#7d6a4a':'#c9b88a',r:rand(2,4)});
  if(c.hp>0)return;
@@ -477,7 +477,7 @@ function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){ret
 function reset(){
  cavalryCharges=[];for(const r of RIVER_DEFS)for(const b of r.bridges)b.chargeSent=false;
  camera.x=clamp(WORLD.cx,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(WORLD.cy,vh/(2*zoom),WORLD.h-vh/(2*zoom));
- wave=0;score=0;fortress=100;escortFormation='wedge';elapsed=0;spawnClock=0;waveGap=2;
+ wave=0;score=0;fortress=100;escortFormation='wedge';$('touch-formation').textContent='LINE';elapsed=0;campHintAt=-99;spawnClock=0;waveGap=2;
  enemies=[];bullets=[];particles=[];floaters=[];villagers=[];sheep=[];guards=[];escorts=[];defenders=[];peasants=[];idCounter=0;
  const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
@@ -809,7 +809,7 @@ let liveBulletCount=0;for(const b of bullets)if(b.life>0)bullets[liveBulletCount
 for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt}let liveParticleCount=0;for(const p of particles)if(p.life>0)particles[liveParticleCount++]=p;particles.length=liveParticleCount;
 for(const f of floaters){f.y-=26*dt;f.life-=dt}let liveFloaterCount=0;for(const f of floaters)if(f.life>0)floaters[liveFloaterCount++]=f;floaters.length=liveFloaterCount;
 for(const v of villagers){v.panic=Math.max(0,v.panic-dt);if(!v.panic&&enemies.some(e=>e.hp>0&&dist(v,e)<210))v.panic=1.5;if(v.panic){v.x+=Math.cos(v.dir+Math.PI)*v.speed*2*dt;v.y+=Math.sin(v.dir+Math.PI)*v.speed*2*dt}else{v.dir+=rand(-.4,.4)*dt;v.x+=Math.cos(v.dir)*v.speed*dt;v.y+=Math.sin(v.dir)*v.speed*dt}v.x=clamp(v.x,WORLD.cx-205,WORLD.cx+205);v.y=clamp(v.y,WORLD.cy-165,WORLD.cy+165)}
-if(player.hp<=0||fortress<=0)gameOver();camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));if(hudRefreshTimer>=.12){hudRefreshTimer=0;updateHud()}}
+if(victoryTimer<=0&&(player.hp<=0||fortress<=0))gameOver();camera.x=clamp(player.x,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(player.y,vh/(2*zoom),WORLD.h-vh/(2*zoom));if(hudRefreshTimer>=.12){hudRefreshTimer=0;updateHud()}}
 function eliteDamage(){return 24}
 function nearestFriendly(e){let best=player,bd=dist(e,player);for(const g of friendlyUnits){if(g.hp>0&&dist(e,g)<bd){best=g;bd=dist(e,g)}}return best}
 function nearbyFriendly(e,max=520){const target=nearestFriendly(e);return dist(e,target)<=max?target:null}
@@ -1338,9 +1338,9 @@ function loop(now){
    ui.pause.classList.add('hidden');ui.over.classList.remove('hidden');
    $('over-eyebrow').textContent='A GAME ERROR OCCURRED';$('over-title').textContent='BATTLE PAUSED';
    const errorMessage=err&&err.message?err.message:String(err);
-   const errorStack=err&&err.stack?String(err.stack).split('\\n').slice(0,5).join('\\n'):'No stack trace available';
+   const errorStack=err&&err.stack?String(err.stack).split('\n').slice(0,5).join('\n'):'No stack trace available';
    const errorDetails=$('final-stats');
-   errorDetails.textContent='ERROR: '+errorMessage+'\\n\\n'+errorStack;
+   errorDetails.textContent='ERROR: '+errorMessage+'\n\n'+errorStack;
    errorDetails.classList.add('runtime-error-details');
    $('again-btn').textContent='RELOAD DEFENCE';
   }
@@ -1355,7 +1355,7 @@ $('zoom-reset').addEventListener('click',()=>setZoom(1));
 canvas.addEventListener('wheel',e=>{if(state!=='playing'&&state!=='paused')return;e.preventDefault();setZoom(zoom*(e.deltaY<0?1.12:1/1.12))},{passive:false});
 canvas.addEventListener('pointermove',e=>{const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y});
 canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){mouse.down=true;const p=canvasPos(e);mouse.x=p.x;mouse.y=p.y}});
-window.addEventListener('pointerup',()=>{mouse.down=false;touchFire=false});
+window.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')mouse.down=false});
 window.addEventListener('keydown',e=>{if(e.code==='F3'){e.preventDefault();debugOverlay=!debugOverlay;return}keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Space'&&state==='playing')sword();if(e.code==='KeyF'&&state==='playing'){escortFormation=escortFormation==='wedge'?'line':'wedge';banner(escortFormation==='line'?'GUARD FORMATION · LINE':'GUARD FORMATION · WEDGE');toast('Personal guard formation changed')}if(e.code==='KeyR'&&state==='playing')reload();if(e.code==='KeyE'&&state==='playing'){if(cannonCooldown<=0){shoot(player,player.dir,'couto',88,390);cannonCooldown=4.5;toast('Bastion cannon fired · reloading')}else toast('Cannon reloading…')}});window.addEventListener('keyup',e=>keys[e.code]=false);
 // ---------- Start screen: garrison deployment and fortress blueprint ----------
 const ROLE_IDS=['wall-count','guard-count','active-count'];
@@ -1398,8 +1398,8 @@ ROLE_IDS.forEach(id=>$(id).addEventListener('input',updateDeployment));
 document.querySelectorAll('.step').forEach(b=>b.addEventListener('click',()=>{const inp=$(b.dataset.target);inp.value=clamp((Math.floor(Number(inp.value)||0))+Number(b.dataset.step),0,40);updateDeployment()}));
 document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.preset.split(',');ROLE_IDS.forEach((id,i)=>{$(id).value=v[i]});updateDeployment()}));
 updateDeployment();
-$('start-btn').addEventListener('click',start);$('menu-btn').addEventListener('click',mainMenu);$('over-menu-btn').addEventListener('click',mainMenu);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',start);$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));
-$('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();touchFire=true});$('touch-fire').addEventListener('pointerup',()=>touchFire=false);$('touch-sword').addEventListener('pointerdown',e=>{e.preventDefault();sword()});$('touch-reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
+$('start-btn').addEventListener('click',start);$('menu-btn').addEventListener('click',mainMenu);$('over-menu-btn').addEventListener('click',mainMenu);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',()=>{if(runtimeError)location.reload();else start()});$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));
+$('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();touchFire=true});$('touch-fire').addEventListener('pointerup',()=>touchFire=false);$('touch-fire').addEventListener('pointercancel',()=>touchFire=false);$('touch-fire').addEventListener('lostpointercapture',()=>touchFire=false);$('touch-sword').addEventListener('pointerdown',e=>{e.preventDefault();sword()});$('touch-reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
 $('touch-formation').addEventListener('pointerdown',e=>{e.preventDefault();if(state==='playing'){escortFormation=escortFormation==='wedge'?'line':'wedge';$('touch-formation').textContent=escortFormation==='line'?'WEDGE':'LINE';toast('Guard formation · '+escortFormation.toUpperCase())}});
 $('touch-cannon').addEventListener('pointerdown',e=>{e.preventDefault();if(state==='playing'){if(cannonCooldown<=0){shoot(player,player.dir,'couto',88,390);cannonCooldown=4.5;toast('Bastion cannon fired · reloading')}else toast('Cannon reloading…')}});
 const joy=$('joystick'),stick=$('stick'),aimJoy=$('aim-joystick'),aimStick=$('aim-stick');let joyId=null,aimJoyId=null;
@@ -1412,6 +1412,7 @@ aimJoy.addEventListener('pointerdown',e=>{e.preventDefault();aimJoyId=e.pointerI
 window.addEventListener('keydown',e=>{if(e.code==='Escape'){if(!ui.orders.classList.contains('hidden')){ui.orders.classList.add('hidden');return}pause()}});
 // Drop held keys / fire when the window loses focus so the soldier never runs away on its own.
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouse.down=false;touchFire=false;resetJoy();resetAim()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')pause()});
 window.addEventListener('pointercancel',()=>{mouse.down=false;touchFire=false;resetJoy();resetAim()});
 // A mouse-clicked button keeps focus; Space (sword) would then re-activate it. Release focus after pointer clicks.
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('button');if(b&&e.detail>0)b.blur()});
