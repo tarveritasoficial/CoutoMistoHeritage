@@ -27,7 +27,8 @@ https://tarveritasoficial.github.io/CoutoMistoHeritage/
 - Four fortified enemy camps (France, Spain, Portugal, England) with garrisons; they are protected until wave 10, after which you can destroy them with sword or musket. Each camp lost means smaller waves, and destroying all four wins the game
 - Minimap and camp counter
 - Couto Misto player soldier with musket and sword
-- Configurable garrison (up to 80): wall musketeers, a personal guard and active reserve defenders
+- Configurable garrison (up to 200 soldiers, 100 per role): wall musketeers, a personal guard and active reserve defenders
+- Adjustable number of farmers (0–16 per farm) who defend the countryside with slings
 - Four invading factions: Portugal, Spain, France and England
 - Progressive enemy waves, score, health, ammunition and fortress condition
 - Riflemen, swordsmen, cavalry and elephant units
