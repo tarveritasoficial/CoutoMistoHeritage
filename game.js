@@ -735,7 +735,7 @@ for(const e of enemies){
   if(insideFort(e)){e.breachStage=2;e.breachWallId=null}
   else{
    if(e.breachStage===2){e.breachStage=0;e.breachWallId=null}
-   let breach=e.breachWallId?wallById(e.breachWallId):null;
+   let breach=e.breachWallId?walls.find(w=>w.id===e.breachWallId):null;
    if(!breach||breach.hp>0){
     breach=null;let nearest=Infinity;
     for(const w of walls)if(w.hp<=0){const d=dist(e,{x:w.mx,y:w.my});if(d<nearest){nearest=d;breach=w}}
