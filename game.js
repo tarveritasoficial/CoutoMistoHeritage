@@ -1453,14 +1453,28 @@ function drawElephant(c,f,wp){
  disc(-1,0,3.6,f.dark);disc(-1,0,2.3,'#d8b990');
  disc(16,0,4.3,'#d8b990');disc(16,0,5.4,f.b);disc(16,0,3.2,'#d8b990');
 }
+// Level of detail: when many units are on screen (or zoomed far out) foot soldiers get a cheaper silhouette.
+let drawnThisFrame=0,crowded=false;
+function updateCrowding(){crowded=drawnThisFrame>(crowded?100:135)||zoom<.7;drawnThisFrame=0}
+function drawSimpleSoldier(c,f,isPlayer,wp){
+ const sw=c.moving?Math.sin(wp)*3.5:0,peasant=c.peasant,coat=isPlayer?'#244b36':peasant?'#9b7548':c.friendly&&!c.elite?'#8b6843':f.a;
+ oval(1,3,10,12,'rgba(15,20,14,.26)');oval(sw,-4.6,4,2.6,'#22190f');oval(-sw,4.6,4,2.6,'#22190f');
+ oval(0,0,7.6,11,coat);line(-5,-8,5,6,'#e6dfc8',1.5);line(-5,8,5,-6,'#e6dfc8',1.5);
+ if(c.type==='spearman')line(-9,2,40,1.2,'#8a6a3f',2.2);else if(c.type==='swordsman'&&!peasant)line(8,2,26,1,'#e4e8ea',2.3);else if(c.type==='archer'&&!peasant)disc(13,0,3,'#5a3e26');else if(!peasant)line(2,2,34,0,'#4a4338',2.4);
+ disc(1,0,5.4,'#d8b990');
+ if(peasant||(c.friendly&&!c.elite&&!isPlayer))disc(0,0,8.4,'#b99a5e'),disc(0,0,4.4,'#9b7e48');else oval(0,0,c.type==='rifleman'?5:4.4,c.type==='rifleman'?5:8.2,f.dark);
+ if(isPlayer){ctx.strokeStyle='#f6df9a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,17,0,TAU);ctx.stroke()}
+ if(c.elite){ctx.strokeStyle='#f1d477';ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(0,0,15,0,TAU);ctx.stroke()}
+}
 function drawCharacter(c,isPlayer=false){
- if(!onScreen(c.x,c.y,70/zoom))return;
+ if(!onScreen(c.x,c.y,70/zoom))return;drawnThisFrame++;
  const f=FACTIONS[c.faction]||FACTIONS.couto,type=isPlayer?'player':c.type;
  const wp=walkPhase(c,type==='elephant'?.06:type==='cavalry'?.085:.2);
  ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.dir||0);
  if(type==='cannon'){drawCannon(0,0,0);ctx.fillStyle=f.a;ctx.fillRect(-3,-12,9,6);ctx.fillStyle=f.b;ctx.fillRect(-3,-10,9,2)}
  else if(type==='elephant')drawElephant(c,f,wp);
  else if(type==='cavalry')drawHorseman(c,f,wp);
+ else if(crowded&&!isPlayer)drawSimpleSoldier(c,f,false,wp);
  else if(c.peasant)drawPeasant(c,f,wp);
  else drawSoldier(c,f,isPlayer,wp);
  ctx.restore();
@@ -1475,7 +1489,7 @@ function drawCorpse(k){
  else{oval(0,0,8,5.4,k.faction==='couto'?'#8b6843':f.a);line(-4,-4,4,3,'#e6dfc8',1.2);oval(8,1,3.6,3.4,'#d8b990');oval(9,1,4,4.2,f.dark);line(-6,5,-14,7,'#22190f',2.6);line(-6,-4,-13,-6,'#22190f',2.6)}
  ctx.restore();
 }
-function draw(){ctx.clearRect(0,0,vw,vh);drawTerrain();ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
+function draw(){updateCrowding();ctx.clearRect(0,0,vw,vh);drawTerrain();ctx.save();ctx.translate(vw/2,vh/2);ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
 for(const k of corpses)drawCorpse(k);
 for(const v of villagers){ctx.fillStyle='#d1c19c';ctx.beginPath();ctx.arc(v.x,v.y,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#594d3b';ctx.fillRect(v.x-3,v.y-3,6,5)}
 for(const s of sheep)drawSheep(s);for(const a of cows)drawFarmAnimal(a);for(const a of chickens)drawFarmAnimal(a);
