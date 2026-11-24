@@ -1338,9 +1338,9 @@ function loop(now){
    ui.pause.classList.add('hidden');ui.over.classList.remove('hidden');
    $('over-eyebrow').textContent='A GAME ERROR OCCURRED';$('over-title').textContent='BATTLE PAUSED';
    const errorMessage=err&&err.message?err.message:String(err);
-   const errorStack=err&&err.stack?String(err.stack).split('\\n').slice(0,5).join('\\n'):'No stack trace available';
+   const errorStack=err&&err.stack?String(err.stack).split('\n').slice(0,5).join('\n'):'No stack trace available';
    const errorDetails=$('final-stats');
-   errorDetails.textContent='ERROR: '+errorMessage+'\\n\\n'+errorStack;
+   errorDetails.textContent='ERROR: '+errorMessage+'\n\n'+errorStack;
    errorDetails.classList.add('runtime-error-details');
    $('again-btn').textContent='RELOAD DEFENCE';
   }
@@ -1398,7 +1398,7 @@ ROLE_IDS.forEach(id=>$(id).addEventListener('input',updateDeployment));
 document.querySelectorAll('.step').forEach(b=>b.addEventListener('click',()=>{const inp=$(b.dataset.target);inp.value=clamp((Math.floor(Number(inp.value)||0))+Number(b.dataset.step),0,40);updateDeployment()}));
 document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.preset.split(',');ROLE_IDS.forEach((id,i)=>{$(id).value=v[i]});updateDeployment()}));
 updateDeployment();
-$('start-btn').addEventListener('click',start);$('menu-btn').addEventListener('click',mainMenu);$('over-menu-btn').addEventListener('click',mainMenu);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',start);$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));
+$('start-btn').addEventListener('click',start);$('menu-btn').addEventListener('click',mainMenu);$('over-menu-btn').addEventListener('click',mainMenu);$('pause-btn').addEventListener('click',pause);$('resume-btn').addEventListener('click',pause);$('restart-btn').addEventListener('click',start);$('again-btn').addEventListener('click',()=>{if(runtimeError)location.reload();else start()});$('how-btn').addEventListener('click',()=>ui.orders.classList.remove('hidden'));$('close-orders').addEventListener('click',()=>ui.orders.classList.add('hidden'));
 $('touch-fire').addEventListener('pointerdown',e=>{e.preventDefault();touchFire=true});$('touch-fire').addEventListener('pointerup',()=>touchFire=false);$('touch-sword').addEventListener('pointerdown',e=>{e.preventDefault();sword()});$('touch-reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
 $('touch-formation').addEventListener('pointerdown',e=>{e.preventDefault();if(state==='playing'){escortFormation=escortFormation==='wedge'?'line':'wedge';$('touch-formation').textContent=escortFormation==='line'?'WEDGE':'LINE';toast('Guard formation · '+escortFormation.toUpperCase())}});
 $('touch-cannon').addEventListener('pointerdown',e=>{e.preventDefault();if(state==='playing'){if(cannonCooldown<=0){shoot(player,player.dir,'couto',88,390);cannonCooldown=4.5;toast('Bastion cannon fired · reloading')}else toast('Cannon reloading…')}});
