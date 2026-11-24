@@ -161,7 +161,7 @@ const RIVER_COLLISION_CELL=96,RIVER_COLLISION_GRID=new Map();
   }
  }
 })();
-let riverCollisionChecks=0;
+let riverCollisionChecks=0,campHintAt=-99;
 function riverBlocked(x,y){
  const bucket=RIVER_COLLISION_GRID.get(Math.floor(x/RIVER_COLLISION_CELL)+','+Math.floor(y/RIVER_COLLISION_CELL));
  if(!bucket)return false;
@@ -317,7 +317,7 @@ function buildCamps(){
 function damageCamp(c,amount){
  if(c.destroyed)return;
  // Enemy camps are protected through waves 1–9. Damage becomes possible once wave 10 begins.
- if(wave<10){c.flash=.08;return}
+ if(wave<10){c.flash=.08;if(elapsed-campHintAt>6){campHintAt=elapsed;toast('The camps are fortified until wave 10 · hold the fortress')}return}
  c.hp=Math.max(0,c.hp-amount);c.flash=.14;
  for(let i=0;i<3;i++)addParticle({x:c.x+rand(-40,40),y:c.y+rand(-40,40),vx:rand(-50,50),vy:rand(-70,-10),life:rand(.3,.7),max:.7,color:i%2?'#7d6a4a':'#c9b88a',r:rand(2,4)});
  if(c.hp>0)return;
@@ -477,7 +477,7 @@ function makeSoldier(x,y,faction,type='rifleman',friendly=false,elite=false){ret
 function reset(){
  cavalryCharges=[];for(const r of RIVER_DEFS)for(const b of r.bridges)b.chargeSent=false;
  camera.x=clamp(WORLD.cx,vw/(2*zoom),WORLD.w-vw/(2*zoom));camera.y=clamp(WORLD.cy,vh/(2*zoom),WORLD.h-vh/(2*zoom));
- wave=0;score=0;fortress=100;escortFormation='wedge';elapsed=0;spawnClock=0;waveGap=2;
+ wave=0;score=0;fortress=100;escortFormation='wedge';elapsed=0;campHintAt=-99;spawnClock=0;waveGap=2;
  enemies=[];bullets=[];particles=[];floaters=[];villagers=[];sheep=[];guards=[];escorts=[];defenders=[];peasants=[];idCounter=0;
  const wallCount=clamp(Math.floor(Number($('wall-count').value)||0),0,40);
  const guardCount=clamp(Math.floor(Number($('guard-count').value)||0),0,40);
