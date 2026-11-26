@@ -1511,12 +1511,15 @@ if(player.sword>0){const s={x:player.x,y:player.y};ctx.strokeStyle='#f7e2a4';ctx
 ctx.restore();if(state==='playing'||state==='paused'){drawCampMarkers();drawOffscreenMarkers();drawMinimap()}if(state==='menu')drawMenuPreview()}
 // arrows at the screen edge point to attackers that are outside the camera view
 function drawCampMarkers(){
- const margin=32,top=116,bottom=vh-30,cx=vw/2,cy=(top+bottom)/2;
+ // With the touch controls on screen the zoom buttons, aim stick and action row cover the right and
+ // bottom edges, so keep the edge arrows (and their labels) inside the free area above them.
+ const touchUi=!ui.mobile.classList.contains('hidden');
+ const margin=touchUi?64:32,top=116,bottom=touchUi?vh-250:vh-30,cx=vw/2,cy=(top+bottom)/2;
  // keep markers clear of the minimap (top-left) so their labels are never hidden behind it
  const mmW=Math.round(clamp(vw*.17,112,190)),mmR=12+mmW+8,mmB=88+Math.round(mmW*WORLD.h/WORLD.w)+10;
  for(const c of camps){if(c.destroyed)continue;const sp=screenPoint(c),sx=sp.x,sy=sp.y;if(sx>=margin&&sx<=vw-margin&&sy>=top&&sy<=bottom)continue;const dx=sx-cx,dy=sy-cy,hw=Math.max(1,vw/2-margin),hh=Math.max(1,(bottom-top)/2),k=Math.min(hw/Math.abs(dx||1e-6),hh/Math.abs(dy||1e-6)),px0=cx+dx*k,py=cy+dy*k,px=(px0<mmR+52&&py<mmB)?Math.min(mmR+52,vw-margin):px0,a=Math.atan2(dy,dx),f=FACTIONS[c.faction];
  ctx.save();ctx.translate(px,py);ctx.rotate(a);ctx.fillStyle=f.a;ctx.strokeStyle='#f3e6c5';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(-7,-7);ctx.lineTo(-4,0);ctx.lineTo(-7,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
- const pct=Math.ceil(c.hp/c.max*100);ctx.font='bold 9px Inter';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='#101a15';ctx.fillStyle='#f3e6c5';const label=c.name.replace(' CAMP','');ctx.strokeText(label+' · '+pct+'%',px,py-12);ctx.fillText(label+' · '+pct+'%',px,py-12);ctx.textAlign='left';
+ const pct=Math.ceil(c.hp/c.max*100);ctx.font='bold 9px Inter';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='#101a15';ctx.fillStyle='#f3e6c5';const label=c.name.replace(' CAMP',''),txt=label+' · '+pct+'%',tw=ctx.measureText(txt).width,lx=clamp(px,tw/2+6,vw-tw/2-6);ctx.strokeText(txt,lx,py-12);ctx.fillText(txt,lx,py-12);ctx.textAlign='left';
  }
 }
 function drawOffscreenMarkers(){
