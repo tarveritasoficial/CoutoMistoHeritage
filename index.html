@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17251d">
+  <meta name="description" content="Couto Misto Heritage — defend the star fortress.">
+  <title>Couto Misto Heritage</title>
+  <link rel="stylesheet" href="styles.css?v=20261124-presets1">
+</head>
+<body>
+  <main id="game-shell">
+    <header class="topbar">
+      <div class="brand"><span class="crest">✦</span><div><strong>COUTO MISTO</strong><small>HERITAGE · FORTRESS DEFENCE</small></div></div>
+      <div class="top-stats"><span>WAVE <b id="wave">0</b></span><span>SCORE <b id="score">0</b></span><span>GUARDS <b id="guards">8/8</b></span><span>WALLS <b id="walls">20/20</b></span><span>CAMPS <b id="camps">4/4</b></span></div>
+      <button id="sound-btn" class="small-btn" type="button" aria-label="Toggle sound" title="Sound on (M)">♪</button>
+      <button id="pause-btn" class="small-btn" aria-label="Pause" title="Pause (Esc)">Ⅱ</button>
+    </header>
+    <section id="stage">
+      <div id="zoom-controls" class="zoom-controls" aria-label="Map zoom controls">
+        <button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+        <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+        <button id="zoom-reset" type="button" aria-label="Reset zoom" title="Reset zoom">⌖</button>
+      </div>
+      <canvas id="game" aria-label="Couto Misto fortress defense game"></canvas>
+      <div id="vignette" class="vignette" aria-hidden="true"></div>
+      <div id="loading" class="overlay"><div class="loading-card"><div class="loader-crest">✦</div><h1>COUTO MISTO HERITAGE</h1><p>Preparing the fortress…</p><div class="loading-track"><i></i></div></div></div>
+      <section id="trailer-screen" class="trailer-screen hidden" aria-label="Game trailer">
+        <video id="trailer-video" class="trailer-video" autoplay muted playsinline preload="auto" webkit-playsinline>
+          <source src="CoutoMistoHeritage_intro_720p.mp4?v=20261123-waveformations1" type="video/mp4">
+        </video>
+        <div class="trailer-shade"></div>
+        <div class="trailer-brand"><span>✦ COUTO MISTO HERITAGE</span><small>THE FORTRESS MUST STAND</small></div>
+        <div class="trailer-controls"><button id="trailer-play" class="trailer-btn trailer-play hidden" type="button">PLAY INTRO</button><button id="trailer-sound" class="trailer-btn" type="button">ENABLE SOUND</button><button id="trailer-skip" class="trailer-btn trailer-skip" type="button">SKIP INTRO ↗</button></div>
+        <div class="trailer-caption">HOLD THE FORTRESS · DEFEND YOUR HERITAGE</div>
+      </section>
+      <div id="menu" class="overlay hidden"><div class="menu-card wide">
+        <div class="menu-left">
+          <div class="eyebrow">A HISTORICAL FORTRESS DEFENCE</div>
+          <h1>COUTO MISTO<br><em>HERITAGE</em></h1>
+          <p>Stand with the defenders. Hold the walls. Protect the free lands.</p>
+          <div id="best-record" class="best-record" aria-live="polite"></div>
+          <canvas id="fort-preview" width="640" height="560" aria-label="Fortress layout preview showing where your soldiers will stand"></canvas>
+          <div class="preview-legend">
+            <span><i class="sw gate"></i>Gate · weakest point</span><span><i class="sw wall"></i>Wall</span><span><i class="sw bastion"></i>Bastion</span>
+            <span><i class="dt wall"></i>Wall defenders</span><span><i class="dt active"></i>Active defenders</span><span><i class="dt guard"></i>Personal guard</span>
+          </div>
+          <div class="faction-strip"><span class="cm">COUTO MISTO</span><span class="pt">PORTUGAL</span><span class="es">SPAIN</span><span class="fr">FRANCE</span><span class="en">ENGLAND</span></div>
+        </div>
+        <div class="menu-right">
+          <div class="deployment-panel">
+            <div class="deployment-heading">DEPLOY YOUR GARRISON</div>
+            <div class="eyebrow diff-label">ENEMY STRENGTH</div>
+            <div class="presets" id="difficulty" role="group" aria-label="Difficulty">
+              <button type="button" data-diff="0">RECRUIT</button>
+              <button type="button" data-diff="1">SOLDIER</button>
+              <button type="button" data-diff="2">VETERAN</button>
+            </div>
+            <div class="presets" role="group" aria-label="Garrison presets">
+              <button type="button" data-preset="20,10,20">BALANCED</button>
+              <button type="button" data-preset="45,10,25">GARRISON</button>
+              <button type="button" data-preset="10,20,40">FLYING COLUMN</button>
+              <button type="button" data-preset="60,40,60">GRAND ARMY</button>
+            </div>
+            <div class="role-row">
+              <div class="role-info"><b><i class="dt wall"></i>WALL DEFENDERS</b><small>Elite musketeers on the gates, bastions and walls</small></div>
+              <div class="stepper"><button type="button" class="step" data-target="wall-count" data-step="-1" aria-label="Fewer wall defenders">−</button><input id="wall-count" type="number" min="0" max="100" value="20" inputmode="numeric"><button type="button" class="step" data-target="wall-count" data-step="1" aria-label="More wall defenders">+</button></div>
+            </div>
+            <div class="role-row">
+              <div class="role-info"><b><i class="dt guard"></i>PERSONAL GUARD</b><small>Swordsmen who follow you into the fight</small></div>
+              <div class="stepper"><button type="button" class="step" data-target="guard-count" data-step="-1" aria-label="Fewer personal guards">−</button><input id="guard-count" type="number" min="0" max="100" value="10" inputmode="numeric"><button type="button" class="step" data-target="guard-count" data-step="1" aria-label="More personal guards">+</button></div>
+            </div>
+            <div class="role-row">
+              <div class="role-info"><b><i class="dt active"></i>ACTIVE DEFENDERS</b><small>Reserve swordsmen behind the gates and in the keep</small></div>
+              <div class="stepper"><button type="button" class="step" data-target="active-count" data-step="-1" aria-label="Fewer active defenders">−</button><input id="active-count" type="number" min="0" max="100" value="20" inputmode="numeric"><button type="button" class="step" data-target="active-count" data-step="1" aria-label="More active defenders">+</button></div>
+            </div>
+            <div class="role-row">
+              <div class="role-info"><b><i class="dt guard"></i>FARMERS PER FARM</b><small>Slingers who defend each farm field (not counted in the total)</small></div>
+              <div class="stepper"><button type="button" class="step" data-target="farmer-count" data-step="-1" aria-label="Fewer farmers">−</button><input id="farmer-count" type="number" min="0" max="16" value="8" inputmode="numeric"><button type="button" class="step" data-target="farmer-count" data-step="1" aria-label="More farmers">+</button></div>
+            </div>
+            <div class="deployment-total"><span>TOTAL SOLDIERS <em>(max 200)</em></span><strong id="deployment-total">20</strong></div>
+            <div id="deployment-error" class="deployment-error" aria-live="polite"></div>
+          </div>
+          <p class="wall-note">Nothing enters the fortress until it breaks a <b>gate</b>, <b>wall</b> or <b>bastion</b>. Gates fall first, so keep them manned. Masons repair the walls between waves. The gates open for <b>you</b>: ride out and burn the four <b>enemy camps</b> to win.</p>
+          <button id="start-btn" class="gold-btn">DEFEND THE FORTRESS</button><button id="how-btn" class="ghost-btn">FIELD ORDERS</button>
+        </div>
+      </div></div>
+      <div id="pause" class="overlay hidden"><div class="menu-card compact"><div class="eyebrow">FIELD ORDERS</div><h2>PAUSED</h2><p>The battle waits for your command.</p><button id="resume-btn" class="gold-btn">RESUME BATTLE</button><button id="restart-btn" class="ghost-btn">RESTART DEFENCE</button><button id="menu-btn" class="ghost-btn">BACK TO MAIN MENU</button></div></div>
+      <div id="victory-screen" class="overlay victory-screen hidden">
+        <div id="victory-cinematic" class="victory-cinematic victory-video-stage">
+          <video id="victory-video" class="victory-video" autoplay muted playsinline preload="auto">
+            <source src="victory.mp4" type="video/mp4">
+          </video>
+          <div class="victory-video-shade"></div>
+          <div class="victory-video-controls">
+            <button id="victory-sound" class="trailer-btn" type="button">ENABLE SOUND</button>
+            <button id="victory-skip" class="trailer-btn trailer-skip" type="button">SKIP VIDEO ↗</button>
+          </div>
+        </div>
+        <div id="victory-results" class="menu-card victory-results hidden">
+          <div class="eyebrow">THE FREE LANDS ARE SAFE</div><h2>YOUR LEGACY</h2>
+          <p class="victory-result-copy">The four enemy camps have been defeated. Couto Misto stands free.</p>
+          <div class="victory-stat-grid">
+            <div><b id="victory-score">0</b><span>FINAL SCORE</span></div>
+            <div><b id="victory-waves">0</b><span>WAVES SURVIVED</span></div>
+            <div><b id="victory-soldiers">0/0</b><span>DEFENDERS ALIVE</span></div>
+            <div><b id="victory-time">0:00</b><span>BATTLE DURATION</span></div>
+          </div>
+          <div class="victory-seal">✦ COUTO MISTO · FREE FOREVER ✦</div>
+          <button id="victory-again" class="gold-btn">DEFEND AGAIN</button><button id="victory-menu" class="ghost-btn">BACK TO MAIN MENU</button>
+        </div>
+      </div>
+      <div id="gameover" class="overlay hidden"><div class="menu-card compact"><div id="over-eyebrow" class="eyebrow">THE FORTRESS HAS FALLEN</div><h2 id="over-title">DEFEAT</h2><p id="final-stats">Your defence has ended.</p><button id="again-btn" class="gold-btn">DEFEND AGAIN</button><button id="over-menu-btn" class="ghost-btn">BACK TO MAIN MENU</button></div></div>
+      <div id="orders" class="overlay hidden"><div class="menu-card compact orders-card"><div class="eyebrow">FIELD MANUAL</div><h2>YOUR ORDERS</h2><p><b>WASD / Arrows</b> — move<br><b>Mouse</b> — aim<br><b>Left click</b> — fire musket<br><b>Space</b> — sword strike<br><b>F</b> — toggle guard line / wedge<br><b>R</b> — reload<br><b>E</b> — use nearby cannon<br><b>Esc</b> — pause</p><p><b>The walls</b> — nothing enters until it breaks a gate, wall or bastion. Gates are the weakest point. Walls shield your men from musket fire, and masons repair them between waves.</p><p><b>Leaving the fort</b> — your gates open for you and your guard. Sword or musket the <b>enemy camps</b> until they fall; each one destroyed means smaller enemy waves. Destroy all four to win. Garrisons defend each camp.</p><p class="muted">Mobile: use the left joystick to move and the right joystick to aim. Hold FIRE to shoot; use SWORD, RELOAD, LINE and CANNON for combat commands.</p><button id="close-orders" class="gold-btn">UNDERSTOOD</button></div></div>
+      <div id="hud" class="hud hidden">
+        <div id="camp-objectives" class="camp-objectives"><div class="camp-objectives-heading"><span>ENEMY OBJECTIVES</span><b id="camp-objective-count">4 / 4 REMAINING</b></div><div class="camp-objective-list"><div class="camp-objective-row" id="camp-objective-0"><span class="camp-objective-dot france"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>FRENCH CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div><div class="camp-objective-row" id="camp-objective-1"><span class="camp-objective-dot spain"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>SPANISH CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div><div class="camp-objective-row" id="camp-objective-2"><span class="camp-objective-dot portugal"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>PORTUGUESE CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div><div class="camp-objective-row" id="camp-objective-3"><span class="camp-objective-dot england"></span><div class="camp-objective-info"><div class="camp-objective-top"><b>ENGLISH CAMP</b><small class="camp-objective-value">100%</small></div><div class="camp-objective-track"><i class="camp-objective-fill"></i></div></div></div></div></div>
+        <div class="hud-left"><div class="meter"><span>HEALTH</span><div class="bar"><i id="health-bar"></i></div><b id="health-text">100</b></div><div class="meter"><span>FORTRESS</span><div class="bar fortress"><i id="fort-bar"></i></div><b id="fort-text">100%</b></div></div>
+        <div class="hud-right"><div class="ammo"><span>MUSKET</span><b id="ammo">6 / 6</b><small id="reload-state">READY</small><div class="reload-track"><i id="reload-bar"></i></div></div><div class="nation-legend"><span class="dot pt"></span> PT <span class="dot es"></span> ES <span class="dot fr"></span> FR <span class="dot en"></span> EN</div></div>
+        <div id="wave-banner" class="wave-banner"></div>
+      </div>
+      <div id="mobile-controls" class="mobile-controls hidden">
+        <div id="joystick" class="joystick"><div id="stick" class="stick"></div></div>
+        <div class="mobile-right-controls"><div id="aim-joystick" class="joystick aim-joystick" aria-label="Aim joystick"><div id="aim-stick" class="stick"></div></div><div class="mobile-actions"><button id="touch-fire">FIRE</button><button id="touch-sword">SWORD</button><button id="touch-reload">RELOAD</button><button id="touch-formation">LINE</button><button id="touch-cannon">CANNON</button></div></div>
+      </div>
+      <div id="toast" class="toast"></div>
+    </section>
+    <footer class="footer"><span>✦ FOR THE FREE LANDS OF COUTO MISTO</span><span>WASD MOVE · MOUSE AIM · SPACE SWORD · R RELOAD · E CANNON</span></footer>
+  </main>
+  <script src="audio.js?v=20261124-perf1"></script>
+  <script src="game.js?v=20261126-markers1"></script>
+</body>
+</html>
