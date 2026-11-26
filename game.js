@@ -540,7 +540,16 @@ function updateCavalryCharges(dt){}
 let touchSeen=false;
 const touchUI=()=>touchSeen||matchMedia('(pointer:coarse)').matches;
 let lastPlayerHp=100,buzzAt=0;
-function hurtBuzz(){if(player.hp<lastPlayerHp-1)SFX.play('hurt');if(!touchSeen&&!matchMedia('(pointer:coarse)').matches)return;if(player.hp<lastPlayerHp-1&&elapsed-buzzAt>.25&&navigator.vibrate){buzzAt=elapsed;navigator.vibrate(player.hp<=0?[80,40,80]:25)}lastPlayerHp=player.hp}
+function hurtBuzz(){
+ // Compare against the previous frame and store the new value BEFORE any early return. Before, the
+ // desktop path returned first, lastPlayerHp stayed at 100 and "hurt" replayed every 0.2s forever
+ // after the first hit.
+ const hit=player.hp<lastPlayerHp-1;lastPlayerHp=player.hp;
+ if(!hit)return;
+ SFX.play('hurt');
+ if(!touchSeen&&!matchMedia('(pointer:coarse)').matches)return;
+ if(elapsed-buzzAt>.25&&navigator.vibrate){buzzAt=elapsed;navigator.vibrate(player.hp<=0?[80,40,80]:25)}
+}
 function syncTouchUI(){ui.mobile.classList.toggle('hidden',!touchUI()||state!=='playing'&&state!=='paused')}
 window.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&!touchSeen){touchSeen=true;syncTouchUI()}},{capture:true,passive:true});
 // ---- Saved progress: best run and the last army you deployed (browser storage may be unavailable) ----
